@@ -15,6 +15,7 @@ Diferença vs V2: Remove BedrockWrapper customizado, usa ChatBedrock oficial
 import os
 from typing import Any, Dict, List, Optional, TypedDict, Annotated
 from datetime import datetime
+import hashlib
 import time
 
 # LangChain imports
@@ -82,6 +83,8 @@ class AuryaV3:
             verbose: Habilitar logs detalhados
         """
         self.verbose = verbose
+        self._response_cache: Dict[str, Dict] = {}
+        self._cache_max = 200
         self.fast_model_id = fast_model
         self.primary_model_id = primary_model
         self.region = region
@@ -297,6 +300,15 @@ class AuryaV3:
         """
         start_time = time.time()
 
+        # Check response cache (same question = same answer)
+        cache_key = hashlib.md5(user_input.strip().lower().encode()).hexdigest()
+        if cache_key in self._response_cache:
+            cached = self._response_cache[cache_key]
+            cached["timing"] = {"total": 0.0, "cache": "hit"}
+            cached["request_id"] = request_id
+            print(f"[Aurya V3] Cache HIT for: {user_input[:80]}...")
+            return cached
+
         # Inicializar estado (messages será gerenciado pelo checkpointer)
         initial_state: AuryaState = {
             "input": user_input,
@@ -328,7 +340,7 @@ class AuryaV3:
         print(f"  TOTAL:       {total_time:.2f}s")
         print(f"{'='*70}\n")
 
-        return {
+        result = {
             "output": final_state.get("output"),
             "sql_query": final_state.get("sql_query"),
             "category": final_state.get("category"),
@@ -336,6 +348,15 @@ class AuryaV3:
             "token_usage": final_state.get("token_usage"),
             "request_id": request_id
         }
+
+        # Cache response (skip greetings and errors)
+        if result.get("output") and result.get("category") != "greetings":
+            if len(self._response_cache) >= self._cache_max:
+                oldest = next(iter(self._response_cache))
+                del self._response_cache[oldest]
+            self._response_cache[cache_key] = {k: v for k, v in result.items() if k != "request_id"}
+
+        return result
 
     def clear_history(self, thread_id: str) -> bool:
         """
