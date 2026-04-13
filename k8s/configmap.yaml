@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aurya-config
+  namespace: custom
+data:
+  AWS_DEFAULT_REGION: "us-east-1"
+  BEDROCK_MODEL_HAIKU: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+  BEDROCK_MODEL_SONNET: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+  POSTGRES_HOST: "bigdata.dataiesb.com"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "iesb"

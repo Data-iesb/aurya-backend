@@ -1,0 +1,29 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to ECR...
+      - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 248189947068.dkr.ecr.us-east-1.amazonaws.com
+      - aws eks update-kubeconfig --name dataiesb-cluster --region us-east-1
+  build:
+    commands:
+      - echo Building images...
+      - docker build -t 248189947068.dkr.ecr.us-east-1.amazonaws.com/aurya-backend:latest .
+      - docker build -t 248189947068.dkr.ecr.us-east-1.amazonaws.com/aurya-frontend:latest ./frontend
+  post_build:
+    commands:
+      - echo Pushing images...
+      - docker push 248189947068.dkr.ecr.us-east-1.amazonaws.com/aurya-backend:latest
+      - docker push 248189947068.dkr.ecr.us-east-1.amazonaws.com/aurya-frontend:latest
+      - echo Deploying to EKS...
+      - kubectl apply -f k8s/namespace.yaml
+      - kubectl apply -f k8s/serviceaccount.yaml
+      - kubectl apply -f k8s/configmap.yaml
+      - kubectl apply -f k8s/ingress.yaml
+      - kubectl apply -f k8s/backend.yaml
+      - kubectl apply -f k8s/frontend.yaml
+      - kubectl rollout restart deployment aurya-backend aurya-frontend -n custom
+      - kubectl rollout status deployment aurya-backend -n custom --timeout=120s
+      - kubectl rollout status deployment aurya-frontend -n custom --timeout=120s
+      - echo Done!

@@ -1,0 +1,24 @@
+# Python 3.12 - Latest Stable Versions
+# LangChain and LangGraph 1.0.x
+
+# Core LangChain
+langgraph==1.0.1
+langchain==1.0.2
+langchain-community==0.4
+
+# AWS Integration
+langchain-aws==1.0.0
+
+# Database
+psycopg2-binary==2.9.9
+psycopg2==2.9.9
+
+# FastAPI
+fastapi==0.119.1
+uvicorn==0.38.0
+websockets==15.0.1
+
+# Utilities
+python-dotenv==1.1.1
+
+# Other
