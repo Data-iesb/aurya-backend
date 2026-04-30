@@ -1,25 +1,33 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: aurya-ingress
+  name: aurya-api-ingress
   namespace: custom
   annotations:
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:248189947068:certificate/77d012f4-6507-4af0-9af7-ce75e6a56e08
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/ssl-redirect: "443"
-    alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/healthcheck-path: /_stcore/health
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    # WebSocket support
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+    # TLS
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
-  ingressClassName: alb
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - api.dataiesb.com
+    secretName: api-dataiesb-tls
   rules:
-  - host: aurya.dataiesb.com
+  - host: api.dataiesb.com
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: aurya-frontend-svc
+            name: aurya-backend-svc
             port:
-              number: 80
+              number: 8000

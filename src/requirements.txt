@@ -9,16 +9,18 @@ langchain-community==0.4
 # AWS Integration
 langchain-aws==1.0.0
 
+# Google Gemini
+langchain-google-genai
+
 # Database
-psycopg2-binary==2.9.9
-psycopg2==2.9.9
+trino[sqlalchemy]
 
 # FastAPI
-fastapi==0.119.1
-uvicorn==0.38.0
-websockets==15.0.1
+fastapi
+uvicorn
+websockets
 
 # Utilities
-python-dotenv==1.1.1
+python-dotenv
 
 # Other

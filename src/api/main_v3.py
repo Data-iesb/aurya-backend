@@ -96,7 +96,7 @@ async def get_or_create_session(session_id: str) -> Tuple[AuryaV3, int]:
             return aurya, reset_count
 
         # Create new (verbose=True para debug de HTML)
-        aurya = create_aurya_v3(verbose=True)
+        aurya = await asyncio.to_thread(create_aurya_v3, True)
 
         async with sessions_dict_lock:
             sessions[session_id] = (aurya, datetime.utcnow(), 0)
@@ -294,11 +294,11 @@ async def feedback(data: FeedbackModel):
 
 @app.get("/cache-stats")
 async def cache_stats():
-    from src.core.bedrock_lazy import BedrockLLMCache
+    from src.core.llm_provider import get_provider
     from src.core.postgres_pool import PostgresConnector
 
     return {
-        "bedrock_llm_cache": BedrockLLMCache.get_cache_stats(),
+        "llm_provider": get_provider(),
         "postgres_pool": await PostgresConnector.get_pool_stats(),
         "concurrency": {
             "max_concurrent": MAX_CONCURRENT_REQUESTS,
@@ -329,7 +329,7 @@ async def startup():
 
     # Start background tasks
     asyncio.create_task(cleanup_sessions())
-    print("✅ Background cleanup task started")
+    print("[OK] Background cleanup task started")
 
 
 @app.on_event("shutdown")

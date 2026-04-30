@@ -202,7 +202,7 @@ class ReActSQLAgent:
     def _build_prompt(self, question: str, examples: str, previous_messages: list = None) -> str:
         """Constrói prompt completo do ReAct com histórico conversacional"""
         # Substituir {dialect} no prefix
-        prefix = AURYA_PREFIX.replace("{dialect}", "PostgreSQL")
+        prefix = AURYA_PREFIX
 
         # Substituir {tool_names} no system prefix
         system_prefix = system_prefix_sql.replace("{tool_names}", "sql_db_query, final_answer")
@@ -222,8 +222,8 @@ class ReActSQLAgent:
 <tools>
 Você tem acesso às seguintes ferramentas:
 
-1. sql_db_query: Executar uma query SQL no banco PostgreSQL
-   Input: Uma query SQL válida em PostgreSQL
+1. sql_db_query: Executar uma query SQL no Trino (datalake)
+   Input: Uma query SQL válida em Trino (use layer.table, ex: gold.sus_aih)
    Output: Resultado da query
 
 2. final_answer: Fornecer a resposta final ao usuário

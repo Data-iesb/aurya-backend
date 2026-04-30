@@ -1,870 +1,248 @@
-sociodemograficos = """
-<context>
-This subcategory focuses on Brazilian sociodemographic data from IBGE Censo 2022.
-The main tables available are:
-- Censo_20222_Populacao_Idade_Sexo: Census 2022 population data by age, gender, and municipality
-- municipio
-- unidade_federacao
-- regiao
-</context>
-
-<query_patterns>
-Common query patterns for this subcategory:
-1. Population queries: Use Censo_20222_Populacao_Idade_Sexo table with SUM("TOTAL")
-2. Aggregations: Usually group by geographical levels (municipality, UF/state, region)
-3. Joins: Always use proper foreign key: "CO_MUNICIPIO" = codigo_municipio_dv
-4. Ordering: Sort results by population (DESC) or geography for readability
-</query_patterns>
-
-<examples>
-<example id="1">
-<business_question>
-Qual o total da população brasileira em 2022?
-</business_question>
-
-<sql_query>
-SELECT SUM("TOTAL") AS populacao_total
-FROM iesb.public."Censo_20222_Populacao_Idade_Sexo";
-</sql_query>
-</example id="1">
-
-<example id="2">
-<business_question>
-Qual o total da população brasileira em 2022 por município?
-</business_question>
-
-<sql_query>
-SELECT
-  mu.codigo_municipio_dv,
-  mu.nome_municipio,
-  SUM(pop."TOTAL") AS populacao_total
-FROM
-  iesb.public."Censo_20222_Populacao_Idade_Sexo" pop
-  INNER JOIN iesb.public.municipio mu ON pop."CO_MUNICIPIO" = mu.codigo_municipio_dv
-GROUP BY
-  mu.codigo_municipio_dv,
-  mu.nome_municipio
-ORDER BY
-  populacao_total DESC;
-</sql_query>
-</example id="2">
-
-<example id="3">
-<business_question>
-Segundo o Censo de 2022, qual era o total da população do Distrito Federal?
-</business_question>
-
-<sql_query>
-SELECT 
-    SUM(pop."TOTAL") AS populacao_total
-FROM 
-    iesb.public."Censo_20222_Populacao_Idade_Sexo" AS pop
-INNER JOIN 
-    iesb.public.municipio AS mu 
-    ON pop."CO_MUNICIPIO" = mu.codigo_municipio_dv
-INNER JOIN 
-    iesb.public.unidade_federacao AS uf 
-    ON mu.cd_uf = uf.cd_uf
-WHERE 
-    uf.sigla_uf = 'DF';
-</sql_query>
-</example id="3">
-
-<example id="4">
-<business_question>
-Qual o total da população brasileira em 2022 por região?
-</business_question>
-
-<sql_query>
-SELECT 
-    r.nome_regiao,
-    SUM(pop."TOTAL") AS populacao_total
-FROM 
-    iesb.public."Censo_20222_Populacao_Idade_Sexo" AS pop
-INNER JOIN 
-    iesb.public.municipio AS mu 
-    ON pop."CO_MUNICIPIO" = mu.codigo_municipio_dv
-INNER JOIN 
-    iesb.public.unidade_federacao AS uf 
-    ON mu.cd_uf = uf.cd_uf
-INNER JOIN 
-    iesb.public.regiao AS r 
-    ON uf.cd_regiao = r.cd_regiao
-GROUP BY 
-    r.nome_regiao
-ORDER BY 
-    populacao_total DESC;
-</sql_query>
-</example id="4">
-
-<example id="5">
-<business_question>
-Qual era o total da população da região Nordeste em 2022?
-</business_question>
-
-<sql_query>
-SELECT 
-    r.nome_regiao,
-    SUM(pop."TOTAL") AS populacao_total
-FROM 
-    iesb.public."Censo_20222_Populacao_Idade_Sexo" AS pop
-INNER JOIN 
-    iesb.public.municipio AS mu 
-    ON pop."CO_MUNICIPIO" = mu.codigo_municipio_dv
-INNER JOIN 
-    iesb.public.unidade_federacao AS uf 
-    ON mu.cd_uf = uf.cd_uf
-INNER JOIN 
-    iesb.public.regiao AS r 
-    ON uf.cd_regiao = r.cd_regiao
-GROUP BY 
-    r.nome_regiao
-ORDER BY 
-    populacao_total DESC;
-</sql_query>
-</example id="5">
-
-<example id="6">
-<business_question>
-Qual era o total da população do Rio de Janeiro do sexo feminino em 2022?
-</business_question>
-
-<sql_query>
-SELECT 
-    SUM(pop."TOTAL") AS populacao_feminina_total
-FROM 
-    iesb.public."Censo_20222_Populacao_Idade_Sexo" AS pop
-INNER JOIN 
-    iesb.public.municipio AS mu 
-    ON pop."CO_MUNICIPIO" = mu.codigo_municipio_dv
-INNER JOIN 
-    iesb.public.unidade_federacao AS uf 
-    ON mu.cd_uf = uf.cd_uf
-WHERE 
-    uf.sigla_uf = 'RJ'
-    AND pop."SEXO" = 'Mulheres';
-</sql_query>
-</example id="6">
-
-<example id="7">
-<business_question>
-Qual era o total da população do estado de São Paulo do sexo masculino com 18 anos ou mais em 2022?
-</business_question>
-
-<sql_query>
-SELECT 
-    SUM(pop."TOTAL") AS populacao_total
-FROM 
-    iesb.public."Censo_20222_Populacao_Idade_Sexo" AS pop
-INNER JOIN 
-    iesb.public.municipio AS mu 
-    ON pop."CO_MUNICIPIO" = mu.codigo_municipio_dv
-INNER JOIN 
-    iesb.public.unidade_federacao AS uf 
-    ON mu.cd_uf = uf.cd_uf
-WHERE 
-    uf.sigla_uf = 'SP'
-    AND pop."SEXO" = 'Homens'
-    AND pop."IDADE" >= 18;
-</sql_query>
-</example id="7">
-
-<example id="8">
-<business_question>
-Qual é a população brasileira de 0 a 17 anos (crianças e adolescentes) em 2022?
-</business_question>
-
-<sql_query>
-SELECT 
-    SUM("TOTAL") AS populacao_0_a_17_anos
-FROM 
-    iesb.public."Censo_20222_Populacao_Idade_Sexo"
-WHERE 
-    "IDADE" BETWEEN 0 AND 17;
-</sql_query>
-</example id="8">
-
-<example id="9">
-<business_question>
-Qual a população de 0 a 5 anos (primeira infância) por região em 2022?
-</business_question>
-
-<sql_query>
-SELECT 
-    r.nome_regiao,
-    SUM(pop."TOTAL") AS populacao_0_a_5_anos
-FROM 
-    iesb.public."Censo_20222_Populacao_Idade_Sexo" AS pop
-INNER JOIN 
-    iesb.public.municipio AS mu 
-    ON pop."CO_MUNICIPIO" = mu.codigo_municipio_dv
-INNER JOIN 
-    iesb.public.unidade_federacao AS uf 
-    ON mu.cd_uf = uf.cd_uf
-INNER JOIN 
-    iesb.public.regiao AS r 
-    ON uf.cd_regiao = r.cd_regiao
-WHERE 
-    pop."IDADE" BETWEEN 0 AND 5
-GROUP BY 
-    r.nome_regiao
-ORDER BY 
-    populacao_0_a_5_anos DESC;
-</sql_query>
-</example id="9">
-
-<example id="10">
-<business_question>
-Quais são os 20 municípios mais populosos do Brasil em 2022?
-</business_question>
-
-<sql_query>
-SELECT 
-    mu.codigo_municipio_dv,
-    mu.nome_municipio,
-    uf.sigla_uf,
-    SUM(pop."TOTAL") AS populacao_total
-FROM 
-    iesb.public."Censo_20222_Populacao_Idade_Sexo" AS pop
-INNER JOIN 
-    iesb.public.municipio AS mu 
-    ON pop."CO_MUNICIPIO" = mu.codigo_municipio_dv
-INNER JOIN 
-    iesb.public.unidade_federacao AS uf 
-    ON mu.cd_uf = uf.cd_uf
-GROUP BY 
-    mu.codigo_municipio_dv,
-    mu.nome_municipio,
-    uf.sigla_uf
-ORDER BY 
-    populacao_total DESC
-LIMIT 20;
-</sql_query>
-</example id="10">
-
-<example id="11">
-<business_question>
-Qual a diferença entre a população masculina e feminina no Brasil?
-</business_question>
-
-<sql_query>
-SELECT 
-    SUM(CASE WHEN "SEXO" = 'Homens' THEN "TOTAL" ELSE 0 END) AS populacao_masculina,
-    SUM(CASE WHEN "SEXO" = 'Mulheres' THEN "TOTAL" ELSE 0 END) AS populacao_feminina,
-    SUM(CASE WHEN "SEXO" = 'Homens' THEN "TOTAL" ELSE 0 END) 
-        - SUM(CASE WHEN "SEXO" = 'Mulheres' THEN "TOTAL" ELSE 0 END) AS diferenca,
-    ROUND(
-        100.0 * SUM(CASE WHEN "SEXO" = 'Homens' THEN "TOTAL" ELSE 0 END) 
-        / SUM("TOTAL"), 
-        2
-    ) AS perc_homens,
-    ROUND(
-        100.0 * SUM(CASE WHEN "SEXO" = 'Mulheres' THEN "TOTAL" ELSE 0 END) 
-        / SUM("TOTAL"), 
-        2
-    ) AS perc_mulheres
-FROM 
-    iesb.public."Censo_20222_Populacao_Idade_Sexo";
-</sql_query>
-</example id="11">
-
-<example id="12">
-<business_question>
-Qual a população dos municípios que são capitais estaduais?
-</business_question>
-
-<sql_query>
-SELECT 
-    mu.nome_municipio,
-    uf.sigla_uf,
-    SUM(pop."TOTAL") AS populacao_total
-FROM 
-    iesb.public."Censo_20222_Populacao_Idade_Sexo" AS pop
-INNER JOIN 
-    iesb.public.municipio AS mu 
-    ON pop."CO_MUNICIPIO" = mu.codigo_municipio_dv
-INNER JOIN 
-    iesb.public.unidade_federacao AS uf 
-    ON mu.cd_uf = uf.cd_uf
-WHERE 
-    mu.municipio_capital = 'Sim'
-GROUP BY 
-    mu.nome_municipio,
-    uf.sigla_uf
-ORDER BY 
-    populacao_total DESC;
-</sql_query>
-</example id="12">
-
-<example id="13">
-<business_question>
-Qual a população feminina entre 18 e 29 anos na região Sudeste?
-</business_question>
-
-<sql_query>
-SELECT 
-    SUM(pop."TOTAL") AS populacao_feminina_18_a_29_anos
-FROM 
-    iesb.public."Censo_20222_Populacao_Idade_Sexo" AS pop
-INNER JOIN 
-    iesb.public.municipio AS mu 
-    ON pop."CO_MUNICIPIO" = mu.codigo_municipio_dv
-INNER JOIN 
-    iesb.public.unidade_federacao AS uf 
-    ON mu.cd_uf = uf.cd_uf
-INNER JOIN 
-    iesb.public.regiao AS r 
-    ON uf.cd_regiao = r.cd_regiao
-WHERE 
-    r.nome_regiao = 'Sudeste'
-    AND pop."SEXO" = 'Mulheres'
-    AND pop."IDADE" BETWEEN 18 AND 29;
-</sql_query>
-</example id="13">
-
-<example id="14">
-<business_question>
-Quantos homens com 65 anos ou mais existem nos municípios que são capitais?
-</business_question>
-
-<sql_query>
-SELECT 
-    SUM(pop."TOTAL") AS populacao_homens_65_mais
-FROM 
-    iesb.public."Censo_20222_Populacao_Idade_Sexo" AS pop
-INNER JOIN 
-    iesb.public.municipio AS mu 
-    ON pop."CO_MUNICIPIO" = mu.codigo_municipio_dv
-WHERE 
-    mu.municipio_capital = 'Sim'
-    AND pop."SEXO" = 'Homens'
-    AND pop."IDADE" >= 65;
-</sql_query>
-</example id="14">
-
-<example id="15">
-<business_question>
-Quais municípios têm a maior proporção de crianças (0-14 anos)?
-</business_question>
-
-<sql_query>
-SELECT 
-    mu.nome_municipio,
-    uf.sigla_uf,
-    SUM(CASE WHEN pop."IDADE" BETWEEN 0 AND 14 THEN pop."TOTAL" ELSE 0 END) AS populacao_criancas,
-    SUM(pop."TOTAL") AS populacao_total,
-    ROUND(
-        100.0 * SUM(CASE WHEN pop."IDADE" BETWEEN 0 AND 14 THEN pop."TOTAL" ELSE 0 END) 
-        / NULLIF(SUM(pop."TOTAL"), 0), 
-        2
-    ) AS percentual_criancas
-FROM 
-    iesb.public."Censo_20222_Populacao_Idade_Sexo" AS pop
-INNER JOIN 
-    iesb.public.municipio AS mu 
-    ON pop."CO_MUNICIPIO" = mu.codigo_municipio_dv
-INNER JOIN 
-    iesb.public.unidade_federacao AS uf 
-    ON mu.cd_uf = uf.cd_uf
-GROUP BY 
-    mu.nome_municipio,
-    uf.sigla_uf
-ORDER BY 
-    percentual_criancas DESC
-LIMIT 20;
-</sql_query>
-</example id="15">
-
-<example id="16">
-<business_question>
-Qual a população total da região Centro-Oeste por faixa etária decenal (0-9, 10-19, etc.)?
-</business_question>
-
-<sql_query>
-SELECT 
-    CASE 
-        WHEN pop."IDADE" BETWEEN 0 AND 9 THEN '0-9 anos'
-        WHEN pop."IDADE" BETWEEN 10 AND 19 THEN '10-19 anos'
-        WHEN pop."IDADE" BETWEEN 20 AND 29 THEN '20-29 anos'
-        WHEN pop."IDADE" BETWEEN 30 AND 39 THEN '30-39 anos'
-        WHEN pop."IDADE" BETWEEN 40 AND 49 THEN '40-49 anos'
-        WHEN pop."IDADE" BETWEEN 50 AND 59 THEN '50-59 anos'
-        WHEN pop."IDADE" BETWEEN 60 AND 69 THEN '60-69 anos'
-        WHEN pop."IDADE" BETWEEN 70 AND 79 THEN '70-79 anos'
-        WHEN pop."IDADE" BETWEEN 80 AND 89 THEN '80-89 anos'
-        WHEN pop."IDADE" >= 90 THEN '90+ anos'
-    END AS faixa_etaria,
-    SUM(pop."TOTAL") AS populacao_total
-FROM 
-    iesb.public."Censo_20222_Populacao_Idade_Sexo" AS pop
-INNER JOIN 
-    iesb.public.municipio AS mu 
-    ON pop."CO_MUNICIPIO" = mu.codigo_municipio_dv
-INNER JOIN 
-    iesb.public.unidade_federacao AS uf 
-    ON mu.cd_uf = uf.cd_uf
-INNER JOIN 
-    iesb.public.regiao AS r 
-    ON uf.cd_regiao = r.cd_regiao
-WHERE 
-    r.nome_regiao = 'Centro-Oeste'
-GROUP BY 
-    faixa_etaria
-ORDER BY 
-    MIN(pop."IDADE");
-</sql_query>
-</example id="16">
-
-<example id="17">
-<business_question>
-Quais são os 5 municípios mais populosos de cada região?
-</business_question>
-
-<sql_query>
-WITH populacao_municipio AS (
-    SELECT 
-        r.nome_regiao,
-        mu.nome_municipio,
-        uf.sigla_uf,
-        SUM(pop."TOTAL") AS populacao_total
-    FROM 
-        iesb.public."Censo_20222_Populacao_Idade_Sexo" AS pop
-    INNER JOIN 
-        iesb.public.municipio AS mu 
-        ON pop."CO_MUNICIPIO" = mu.codigo_municipio_dv
-    INNER JOIN 
-        iesb.public.unidade_federacao AS uf 
-        ON mu.cd_uf = uf.cd_uf
-    INNER JOIN 
-        iesb.public.regiao AS r 
-        ON uf.cd_regiao = r.cd_regiao
-    GROUP BY 
-        r.nome_regiao,
-        mu.nome_municipio,
-        uf.sigla_uf
-),
-ranked_municipios AS (
-    SELECT 
-        nome_regiao,
-        nome_municipio,
-        sigla_uf,
-        populacao_total,
-        ROW_NUMBER() OVER (PARTITION BY nome_regiao ORDER BY populacao_total DESC) AS ranking
-    FROM 
-        populacao_municipio
-)
-SELECT 
-    nome_regiao,
-    nome_municipio,
-    sigla_uf,
-    populacao_total,
-    ranking
-FROM 
-    ranked_municipios
-WHERE 
-    ranking <= 5
-ORDER BY 
-    nome_regiao,
-    ranking;
-</sql_query>
-</example id="17">
-</examples>
-
-<best_practices>
-1. Always use proper table aliases for readability (pop for population table, mu for municipio)
-2. Include ORDER BY clauses to return results in meaningful order (usually DESC for population totals)
-3. Use descriptive column aliases in SELECT statements (e.g., populacao_total instead of just sum)
-4. When joining tables, always specify the join condition explicitly using INNER JOIN
-5. For string comparisons in WHERE clauses, use exact matches with proper capitalization
-6. Remember that "TOTAL" column in census table MUST be quoted due to uppercase naming
-7. Always aggregate with SUM() when working with population data from the census table
-</best_practices>
-
-<important_notes>
-- The Censo_20222_Populacao_Idade_Sexo table has "TOTAL" in uppercase and REQUIRES quotes
-- The census table uses "CO_MUNICIPIO" (uppercase with quotes) for the join key
-- Municipality reference table uses codigo_municipio_dv (lowercase) as the foreign key
-- All population queries should use SUM("TOTAL") to aggregate demographic segments
-</important_notes>
-
-<instructions>
-- If the user's question matches closely with one of the examples above, adapt the query pattern accordingly
-- Always include proper table aliases and descriptive column names
-- For geographic breakdowns, use appropriate GROUP BY based on the requested level of detail
-</instructions>
-"""
-
 saude = """
 <context>
-This subcategory focuses on Brazilian healthcare data from DATASUS (Departamento de Informática do SUS).
-The main table is:
-- sus_procedimento_ambulatorial: Outpatient procedure data with quantities and values organized by temporal and geographic dimensions
+Você é especialista em dados do SUS (Sistema Único de Saúde) do Brasil, especificamente em
+Autorizações de Internação Hospitalar (AIH) do DATASUS.
+
+A tabela principal é **gold.sus_aih** — dados mensais agregados por município de procedimentos
+hospitalares realizados pelo SUS, incluindo quantidades e valores por tipo de procedimento.
+
+Dados disponíveis: anos 2019 e 2025 | 27 UFs | ~5.300 municípios | ~108 mil registros.
+Cada linha = 1 município em 1 mês.
 </context>
 
-<query_patterns>
-Common query patterns for this subcategory:
-1. Temporal aggregations: GROUP BY year and/or month
-2. Geographic aggregations: GROUP BY region, UF (state), and/or municipality
-3. Procedure type filters: Use specific qtd_XX or vl_XX columns for procedure groups/types
-4. Combined dimensions: Mix temporal + geographic + procedure type
-5. Always use SUM() for quantities and values
-6. Always use ORDER BY to return results in logical sequence
-</query_patterns>
+<schema>
+Tabela: gold.sus_aih
+
+── Dimensões ──
+ano              INTEGER    Ano (2019, 2025)
+mes              INTEGER    Mês (1-12)
+municipio        VARCHAR    Nome do município (ex: 'São Paulo', 'Manaus')
+uf               VARCHAR    Sigla do estado (ex: 'SP', 'AM')
+uf_nome          VARCHAR    Nome do estado (ex: 'São Paulo', 'Amazonas')
+regiao           VARCHAR    Nome da região ('Norte','Nordeste','Sudeste','Sul','Centro-Oeste')
+cod_municipio    VARCHAR    Código IBGE com dígito verificador (7 dígitos)
+capital          BOOLEAN    Se é capital do estado (true/false)
+latitude         DECIMAL    Latitude do município
+longitude        DECIMAL    Longitude do município
+
+── Totais ──
+qtd_total        INTEGER    Quantidade total de procedimentos
+vl_total         DOUBLE     Valor total em R$
+
+── Quantidade por grupo de procedimento ──
+qtd_prevencao       INTEGER    Grupo 01: Ações de promoção e prevenção em saúde
+qtd_diagnostico     INTEGER    Grupo 02: Procedimentos com finalidade diagnóstica
+qtd_clinico         INTEGER    Grupo 03: Procedimentos clínicos (consultas, fisioterapia, oncologia, nefrologia, odontologia)
+qtd_cirurgico       INTEGER    Grupo 04: Procedimentos cirúrgicos
+qtd_transplante     INTEGER    Grupo 05: Transplantes de órgãos, tecidos e células
+qtd_medicamento     INTEGER    Grupo 06: Medicamentos
+qtd_ortese_protese  INTEGER    Grupo 07: Órteses, próteses e materiais especiais
+qtd_complementar    INTEGER    Grupo 08: Ações complementares da atenção à saúde
+
+── Valor (R$) por grupo de procedimento ──
+vl_diagnostico      DOUBLE     Valor gasto em diagnósticos
+vl_clinico          DOUBLE     Valor gasto em procedimentos clínicos
+vl_cirurgico        DOUBLE     Valor gasto em cirurgias
+vl_transplante      DOUBLE     Valor gasto em transplantes
+vl_medicamento      DOUBLE     Valor gasto em medicamentos
+vl_ortese_protese   DOUBLE     Valor gasto em órteses/próteses
+vl_complementar     DOUBLE     Valor gasto em ações complementares
+
+── Subgrupos clínicos detalhados (dentro do grupo 03) ──
+qtd_consultas       INTEGER    Consultas/atendimentos/acompanhamentos
+qtd_fisioterapia    INTEGER    Fisioterapia
+qtd_oncologia       INTEGER    Tratamentos oncológicos
+qtd_nefrologia      INTEGER    Tratamentos nefrológicos (diálise/hemodiálise)
+qtd_odontologia     INTEGER    Tratamentos odontológicos
+vl_consultas        DOUBLE     Valor de consultas
+vl_fisioterapia     DOUBLE     Valor de fisioterapia
+vl_oncologia        DOUBLE     Valor de tratamentos oncológicos
+vl_nefrologia       DOUBLE     Valor de tratamentos nefrológicos
+vl_odontologia      DOUBLE     Valor de tratamentos odontológicos
+</schema>
+
+<query_rules>
+1. Sempre use SUM() para agregar quantidades (qtd_*) e valores (vl_*) — os dados são por município/mês.
+2. Use ORDER BY para resultados em sequência lógica (temporal ou geográfica).
+3. Para filtrar por estado, use uf (sigla 2 letras: 'SP', 'RJ') no WHERE, mas mostre uf_nome no SELECT.
+4. ano e mes são INTEGER — compare sem aspas: WHERE ano = 2025, não WHERE ano = '2025'.
+5. Valores monetários estão em Reais (R$). Para bilhões: ROUND(SUM(vl_total)/1e9, 2).
+6. Use LIMIT para limitar resultados, nunca TOP.
+7. Sempre prefixe a tabela com o schema: gold.sus_aih.
+</query_rules>
 
 <examples>
 <example id="1">
-<business_question>
-Quantos atendimentos ambulatoriais foram realizados pelo SUS por ano?
-</business_question>
-
-<sql_query>
-SELECT
-  ano_producao_ambulatorial,
-  SUM(qtd_total) AS quantidade_total
-FROM
-  iesb.public.sus_procedimento_ambulatorial
-GROUP BY
-  ano_producao_ambulatorial
-ORDER BY
-  ano_producao_ambulatorial;
-</sql_query>
-</example id="1">
+<question>Quantos procedimentos hospitalares foram realizados pelo SUS por ano?</question>
+<sql>
+SELECT ano, SUM(qtd_total) AS total_procedimentos
+FROM gold.sus_aih
+GROUP BY ano
+ORDER BY ano
+</sql>
+</example>
 
 <example id="2">
-<business_question>
-Qual o total investido pelo SUS nos atendimentos ambulatoriais por ano?
-</business_question>
-
-<sql_query>
-SELECT
-  ano_producao_ambulatorial,
-  SUM(vl_total) AS valor_total
-FROM
-  iesb.public.sus_procedimento_ambulatorial
-GROUP BY
-  ano_producao_ambulatorial
-ORDER BY
-  ano_producao_ambulatorial;
-</sql_query>
-</example id="2">
+<question>Qual o total investido pelo SUS em internações por ano?</question>
+<sql>
+SELECT ano, ROUND(SUM(vl_total)/1e9, 2) AS valor_bilhoes
+FROM gold.sus_aih
+GROUP BY ano
+ORDER BY ano
+</sql>
+</example>
 
 <example id="3">
-<business_question>
-Qual a quantidade de atendimentos ambulatoriais e total investido pelo SUS por ano/mês?
-</business_question>
-
-<sql_query>
-SELECT
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial,
-  SUM(qtd_total) AS quantidade_total,
-  SUM(vl_total) AS valor_total
-FROM
-  iesb.public.sus_procedimento_ambulatorial
-GROUP BY
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial
-ORDER BY
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial;
-</sql_query>
-/example id="3">
+<question>Qual a evolução mensal de procedimentos e valores em 2025?</question>
+<sql>
+SELECT mes, SUM(qtd_total) AS procedimentos, ROUND(SUM(vl_total)/1e6, 1) AS valor_milhoes
+FROM gold.sus_aih
+WHERE ano = 2025
+GROUP BY mes
+ORDER BY mes
+</sql>
+</example>
 
 <example id="4">
-<business_question>
-Qual a quantidade de atendimentos ambulatoriais e total investido pelo SUS por ano/UF/mês?
-</business_question>
-
-<sql_query>
-SELECT
-  ano_producao_ambulatorial,
-  uf_nome,
-  mes_producao_ambulatorial,
-  SUM(qtd_total) AS quantidade_total,
-  SUM(vl_total) AS valor_total
-FROM
-  iesb.public.sus_procedimento_ambulatorial
-GROUP BY
-  ano_producao_ambulatorial,
-  uf_nome,
-  mes_producao_ambulatorial
-ORDER BY
-  ano_producao_ambulatorial,
-  uf_nome,
-  mes_producao_ambulatorial;
-</sql_query>
-</example id="4">
+<question>Quais estados gastam mais com o SUS?</question>
+<sql>
+SELECT uf, uf_nome, SUM(qtd_total) AS procedimentos, ROUND(SUM(vl_total)/1e6, 1) AS valor_milhoes
+FROM gold.sus_aih
+GROUP BY uf, uf_nome
+ORDER BY valor_milhoes DESC
+LIMIT 10
+</sql>
+</example>
 
 <example id="5">
-<business_question>
-Qual a quantidade de atendimentos ambulatoriais e total investido pelo SUS por ano/UF/mês, no estado de São Paulo (SP)?
-</business_question>
-
-<sql_query>
-SELECT
-  ano_producao_ambulatorial,
-  uf_nome,
-  mes_producao_ambulatorial,
-  SUM(qtd_total) AS quantidade_total,
-  SUM(vl_total) AS valor_total
-FROM
-  iesb.public.sus_procedimento_ambulatorial
-WHERE
-  uf_sigla = 'SP'
-GROUP BY
-  ano_producao_ambulatorial,
-  uf_nome,
-  mes_producao_ambulatorial
-ORDER BY
-  ano_producao_ambulatorial,
-  uf_nome,
-  mes_producao_ambulatorial;
-</sql_query>
-</example id="5">
+<question>Qual o gasto do SUS por região em 2025?</question>
+<sql>
+SELECT regiao, SUM(qtd_total) AS procedimentos, ROUND(SUM(vl_total)/1e9, 2) AS valor_bilhoes
+FROM gold.sus_aih
+WHERE ano = 2025
+GROUP BY regiao
+ORDER BY valor_bilhoes DESC
+</sql>
+</example>
 
 <example id="6">
-<business_question>
-Qual o total de atendimentos ambulatoriais e valores investidos de "Procedimentos clínicos" no SUS por ano?
-</business_question>
-
-<sql_query>
-SELECT
-  ano_producao_ambulatorial,
-  SUM(qtd_03) AS quantidade_procedimentos_clinicos,
-  SUM(vl_03) AS valor_procedimentos_clinicos
-FROM
-  iesb.public.sus_procedimento_ambulatorial
-GROUP BY
-  ano_producao_ambulatorial
-ORDER BY
-  ano_producao_ambulatorial;
-</sql_query>
-</example id="6">
+<question>Quanto o SUS gastou em cirurgias vs procedimentos clínicos por ano?</question>
+<sql>
+SELECT ano,
+       SUM(qtd_clinico) AS qtd_clinicos,
+       ROUND(SUM(vl_clinico)/1e6, 1) AS vl_clinicos_mi,
+       SUM(qtd_cirurgico) AS qtd_cirurgicos,
+       ROUND(SUM(vl_cirurgico)/1e6, 1) AS vl_cirurgicos_mi
+FROM gold.sus_aih
+GROUP BY ano
+ORDER BY ano
+</sql>
+</example>
 
 <example id="7">
-<business_question>
-Qual o total de atendimentos ambulatoriais e valores investidos de "Procedimentos clínicos" no SUS por ano/mês?
-</business_question>
-
-<sql_query>
-SELECT
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial,
-  SUM(qtd_03) AS quantidade_procedimentos_clinicos,
-  SUM(vl_03) AS valor_procedimentos_clinicos
-FROM
-  iesb.public.sus_procedimento_ambulatorial
-GROUP BY
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial
-ORDER BY
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial;
-</sql_query>
-</example id="7">
+<question>Quais os municípios com mais internações em São Paulo em 2025?</question>
+<sql>
+SELECT municipio, SUM(qtd_total) AS procedimentos, ROUND(SUM(vl_total)/1e6, 1) AS valor_milhoes
+FROM gold.sus_aih
+WHERE uf = 'SP' AND ano = 2025
+GROUP BY municipio
+ORDER BY procedimentos DESC
+LIMIT 15
+</sql>
+</example>
 
 <example id="8">
-<business_question>
-Qual o total de atendimentos ambulatoriais e valores investidos de "Procedimentos clínicos" no SUS por ano/mês/região?
-</business_question>
-
-<sql_query>
-SELECT
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial,
-  regiao_nome,
-  SUM(qtd_03) AS quantidade_procedimentos_clinicos,
-  SUM(vl_03) AS valor_procedimentos_clinicos
-FROM
-  iesb.public.sus_procedimento_ambulatorial
-GROUP BY
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial,
-  regiao_nome
-ORDER BY
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial,
-  regiao_nome;
-</sql_query>
-</example id="8">
+<question>Qual o gasto com tratamentos oncológicos por estado?</question>
+<sql>
+SELECT uf, uf_nome, SUM(qtd_oncologia) AS qtd_oncologia, ROUND(SUM(vl_oncologia)/1e6, 1) AS valor_milhoes
+FROM gold.sus_aih
+GROUP BY uf, uf_nome
+ORDER BY valor_milhoes DESC
+LIMIT 10
+</sql>
+</example>
 
 <example id="9">
-<business_question>
-Qual o total de atendimentos ambulatoriais e valores investidos de "Procedimentos clínicos" no SUS por ano/mês/região/UF?
-</business_question>
-
-<sql_query>
+<question>Qual a proporção de cada tipo de procedimento no total nacional em 2025?</question>
+<sql>
 SELECT
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial,
-  regiao_nome,
-  uf_nome,
-  SUM(qtd_03) AS quantidade_procedimentos_clinicos,
-  SUM(vl_03) AS valor_procedimentos_clinicos
-FROM
-  iesb.public.sus_procedimento_ambulatorial
-GROUP BY
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial,
-  regiao_nome,
-  uf_nome
-ORDER BY
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial,
-  regiao_nome,
-  uf_nome;
-</sql_query>
-</example id="9">
+    ROUND(100.0 * SUM(qtd_clinico) / SUM(qtd_total), 1) AS pct_clinico,
+    ROUND(100.0 * SUM(qtd_cirurgico) / SUM(qtd_total), 1) AS pct_cirurgico,
+    ROUND(100.0 * SUM(qtd_diagnostico) / SUM(qtd_total), 1) AS pct_diagnostico,
+    ROUND(100.0 * SUM(qtd_complementar) / SUM(qtd_total), 1) AS pct_complementar,
+    ROUND(100.0 * SUM(qtd_prevencao) / SUM(qtd_total), 1) AS pct_prevencao,
+    ROUND(100.0 * SUM(qtd_transplante) / SUM(qtd_total), 1) AS pct_transplante
+FROM gold.sus_aih
+WHERE ano = 2025
+</sql>
+</example>
 
 <example id="10">
-<business_question>
-Qual o total de atendimentos ambulatoriais e valores investidos de "Tratamentos em nefrologia" no SUS por ano/mês/região/UF?
-</business_question>
-
-<sql_query>
-SELECT
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial,
-  regiao_nome,
-  uf_nome,
-  SUM(qtd_0305) AS quantidade_tratamentos_nefrologia,
-  SUM(vl_0305) AS valor_tratamentos_nefrologia
-FROM
-  iesb.public.sus_procedimento_ambulatorial
-GROUP BY
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial,
-  regiao_nome,
-  uf_nome
-ORDER BY
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial,
-  regiao_nome,
-  uf_nome;
-</sql_query>
-</example id="10">
+<question>Quanto o SUS gastou com nefrologia (diálise/hemodiálise) por região?</question>
+<sql>
+SELECT regiao, SUM(qtd_nefrologia) AS qtd_nefrologia, ROUND(SUM(vl_nefrologia)/1e6, 1) AS valor_milhoes
+FROM gold.sus_aih
+GROUP BY regiao
+ORDER BY valor_milhoes DESC
+</sql>
+</example>
 
 <example id="11">
-<business_question>
-Qual a evolução mensal de exames laboratoriais clínicos em São Paulo?
-</business_question>
-
-<sql_query>
-SELECT
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial,
-  SUM(qtd_0202) AS quantidade_exames_laboratoriais,
-  SUM(vl_0202) AS valor_exames_laboratoriais
-FROM
-  sus_procedimento_ambulatorial
-WHERE
-  uf_sigla = 'SP'
-GROUP BY
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial
-ORDER BY
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial;
-</sql_query>
-</example id="11">
+<question>Quais capitais têm mais procedimentos cirúrgicos?</question>
+<sql>
+SELECT municipio, uf, SUM(qtd_cirurgico) AS cirurgias, ROUND(SUM(vl_cirurgico)/1e6, 1) AS valor_milhoes
+FROM gold.sus_aih
+WHERE capital = true
+GROUP BY municipio, uf
+ORDER BY cirurgias DESC
+LIMIT 10
+</sql>
+</example>
 
 <example id="12">
-<business_question>
-Qual o valor total gasto com medicamentos ambulatoriais pelo SUS por ano?
-</business_question>
-
-<sql_query>
-SELECT 
-    ano_producao_ambulatorial, 
-    SUM(vl_06) AS valor_total_medicamentos
-FROM 
-    sus_procedimento_ambulatorial
-GROUP BY 
-    ano_producao_ambulatorial
-ORDER BY 
-    ano_producao_ambulatorial;
-</sql_query>
-</example id="12">
+<question>Qual a evolução mensal de gastos com fisioterapia no Nordeste em 2025?</question>
+<sql>
+SELECT mes, SUM(qtd_fisioterapia) AS qtd_fisio, ROUND(SUM(vl_fisioterapia)/1e6, 1) AS valor_milhoes
+FROM gold.sus_aih
+WHERE regiao = 'Nordeste' AND ano = 2025
+GROUP BY mes
+ORDER BY mes
+</sql>
+</example>
 
 <example id="13">
-<business_question>
-Quanto foi investido em medicamentos hospitalares vs. componentes especializados por ano/mês?
-</business_question>
-
-<sql_query>
-SELECT
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial,
-  SUM(vl_0603) AS valor_medicamentos_hospitalares,
-  SUM(vl_0604) AS valor_componentes_especializados
-FROM
-  sus_procedimento_ambulatorial
-GROUP BY
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial
-ORDER BY
-  ano_producao_ambulatorial,
-  mes_producao_ambulatorial;
-</sql_query>
-</example id="13">
+<question>Compare o gasto total do SUS entre 2019 e 2025 por região.</question>
+<sql>
+SELECT regiao, ano, ROUND(SUM(vl_total)/1e9, 2) AS valor_bilhoes
+FROM gold.sus_aih
+GROUP BY regiao, ano
+ORDER BY regiao, ano
+</sql>
+</example>
 
 <example id="14">
-<business_question>
-Qual o trimestre com maior número de procedimentos ambulatoriais em 2024?
-</business_question>
-
-<sql_query>
-SELECT 
-  CASE 
-    WHEN mes_producao_ambulatorial IN ('01', '02', '03') THEN 'Q1'
-    WHEN mes_producao_ambulatorial IN ('04', '05', '06') THEN 'Q2'
-    WHEN mes_producao_ambulatorial IN ('07', '08', '09') THEN 'Q3'
-    WHEN mes_producao_ambulatorial IN ('10', '11', '12') THEN 'Q4'
-  END AS trimestre,
-  SUM(qtd_total) AS quantidade_total
-FROM 
-  sus_procedimento_ambulatorial
-WHERE 
-  ano_producao_ambulatorial = '2024'
-GROUP BY 
-  CASE 
-    WHEN mes_producao_ambulatorial IN ('01', '02', '03') THEN 'Q1'
-    WHEN mes_producao_ambulatorial IN ('04', '05', '06') THEN 'Q2'
-    WHEN mes_producao_ambulatorial IN ('07', '08', '09') THEN 'Q3'
-    WHEN mes_producao_ambulatorial IN ('10', '11', '12') THEN 'Q4'
-  END
-ORDER BY 
-  quantidade_total DESC;
-</sql_query>
-</example id="14">
+<question>Qual o custo médio por procedimento por estado em 2025?</question>
+<sql>
+SELECT uf, uf_nome,
+       SUM(qtd_total) AS procedimentos,
+       ROUND(SUM(vl_total) / NULLIF(SUM(qtd_total), 0), 2) AS custo_medio_por_procedimento
+FROM gold.sus_aih
+WHERE ano = 2025
+GROUP BY uf, uf_nome
+ORDER BY custo_medio_por_procedimento DESC
+</sql>
+</example>
 </examples>
 
 <best_practices>
-1. Always use SUM() for aggregating quantities (qtd_*) and values (vl_*)
-2. Use descriptive column aliases that clearly indicate what is being measured
-3. For temporal queries, always order by year and month in ascending order
-4. For geographic queries, include region/UF/municipality in ORDER BY for consistent, readable results
-5. When filtering by state, use uf_sigla (2-letter code like 'SP') in WHERE clause, but display uf_nome in SELECT
-6. Remember the hierarchy: qtd_total = sum of qtd_01 through qtd_09
-7. Group-level columns (qtd_03) are aggregations of subgroup columns (qtd_0301, qtd_0302, qtd_0303, etc.)
-8. All column names are lowercase with underscores (no special characters)
+- Sempre use SUM() para agregar — cada linha é um município/mês.
+- Use aliases descritivos em português que expliquem o que está sendo medido.
+- Para queries temporais, ordene por ano e mês ascendente.
+- Para queries geográficas, ordene por valor ou quantidade descendente (ranking).
+- Quando filtrar por estado, use uf (sigla) no WHERE mas mostre uf_nome no SELECT.
+- Para valores grandes, divida por 1e6 (milhões) ou 1e9 (bilhões) e arredonde.
+- Use NULLIF para evitar divisão por zero em cálculos de média.
+- Hierarquia geográfica: regiao > uf/uf_nome > municipio.
+- Hierarquia de procedimentos: qtd_total > grupos (qtd_clinico, qtd_cirurgico...) > subgrupos (qtd_consultas, qtd_oncologia...).
 </best_practices>
-
-<important_notes>
-- All quantity columns start with qtd_ and all value columns start with vl_
-- Geographic hierarchy: regiao_nome > uf_nome (uf_sigla) > municipio_nome
-- Procedure hierarchy: Groups (01-09) > Subgroups (0101-0905)
-- Always aggregate with SUM() since data is already at municipality+month granularity
-- Years are stored as character strings (e.g., '2024')
-- Months are stored as 2-digit character strings: '01' through '12'
-- Value columns represent monetary values in Brazilian Reais (R$)
-</important_notes>
-
-<instructions>
-- If the user's question matches closely with one of the examples above, adapt the query pattern accordingly
-- Always include proper ORDER BY clauses for temporal and/or geographic sorting
-- Use descriptive column aliases that make results easy to interpret
-- For questions about specific procedure types, identify the correct qtd_XX/vl_XX columns from the schema
-- Remember to use SUM() aggregation even for already-aggregated columns (qtd_total, vl_total, etc.)
-</instructions>
 """

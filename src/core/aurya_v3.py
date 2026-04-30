@@ -31,7 +31,7 @@ from langgraph.checkpoint.memory import MemorySaver
 # Aurya components
 from src.prompts.router_prompts import prompt_router, get_example
 from src.core.postgres_pool import PostgresConnector
-from src.core.bedrock_lazy import BedrockLLMCache  # Lazy init!
+from src.core.llm_provider import get_llm, get_provider, clear_cache as clear_llm_cache
 from src.core.react_agent import ReActSQLAgent
 from src.core.token_callback import TokenUsageCallback
 
@@ -66,51 +66,22 @@ class AuryaV3:
     - ✅ Mais estável e mantido
     """
 
-    def __init__(
-        self,
-        fast_model: str = "us.anthropic.claude-3-5-haiku-20241022-v1:0",
-        primary_model: str = "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-        region: str = "us-east-1",
-        verbose: bool = False
-    ):
-        """
-        Inicializa Aurya V3.
-
-        Args:
-            fast_model: Modelo rápido para Router (Haiku)
-            primary_model: Modelo principal para SQL Agent (Sonnet 4.5)
-            region: AWS region
-            verbose: Habilitar logs detalhados
-        """
+    def __init__(self, verbose: bool = False):
         self.verbose = verbose
         self._response_cache: Dict[str, Dict] = {}
         self._cache_max = 200
-        self.fast_model_id = fast_model
-        self.primary_model_id = primary_model
-        self.region = region
 
-        print("🇧🇷 [Aurya V3] Inicializando componentes...")
+        provider = get_provider()
+        print(f"🇧🇷 [Aurya V3] Inicializando com provider: {provider}")
 
-        # PostgreSQL com connection pooling
-        self.db_connector = PostgresConnector()
-        self.db = self.db_connector.get_database()
+        # Database (lazy — connects on first query)
+        self.db = PostgresConnector.get_database()
 
-        # LLMs com cache (ChatBedrock oficial)
-        print(f"🤖 [Aurya V3] Criando LLMs com ChatBedrock...")
-
-        self.llm_fast = BedrockLLMCache.get_or_create_llm(
-            model_id=fast_model,
-            temperature=0.0,
-            max_tokens=2048,
-            region=region
-        )
-
-        self.llm_primary = BedrockLLMCache.get_or_create_llm(
-            model_id=primary_model,
-            temperature=0.0,
-            max_tokens=4096,
-            region=region,
-            model_kwargs={"stop_sequences": ["\nObservation"]}
+        # LLMs via provider factory
+        self.llm_fast = get_llm(role="fast", temperature=0.0, max_tokens=2048)
+        self.llm_primary = get_llm(
+            role="primary", temperature=0.0, max_tokens=4096,
+            stop_sequences=["\nObservation"],
         )
 
         # SQL Agent (custom ReAct)
@@ -119,7 +90,6 @@ class AuryaV3:
             db=self.db,
             max_iterations=5,
             verbose=verbose,
-            model_id=primary_model
         )
 
         # Router chain
@@ -394,27 +364,16 @@ class AuryaV3:
 # FACTORY
 # ============================================================================
 
-def create_aurya_v3(
-    fast_model: Optional[str] = None,
-    primary_model: Optional[str] = None,
-    region: Optional[str] = None,
-    verbose: bool = False
-) -> AuryaV3:
+def create_aurya_v3(verbose: bool = False) -> AuryaV3:
     """Cria instância da Aurya V3"""
-    return AuryaV3(
-        fast_model=fast_model or os.getenv("FAST_MODEL", "us.anthropic.claude-3-5-haiku-20241022-v1:0"),
-        primary_model=primary_model or os.getenv("PRIMARY_MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0"),
-        region=region or os.getenv("AWS_REGION", "us-east-1"),
-        verbose=verbose
-    )
+    return AuryaV3(verbose=verbose)
 
 
 def clear_all_caches():
     """Limpa todos os caches"""
-    from src.core.bedrock_lazy import BedrockLLMCache
     from src.core.postgres_pool import PostgresConnector
 
-    BedrockLLMCache.clear_cache()
+    clear_llm_cache()
     PostgresConnector.clear_pool()
     print("✅ [Aurya V3] Caches cleared")
 
