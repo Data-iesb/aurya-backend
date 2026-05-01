@@ -34,6 +34,7 @@ from src.core.postgres_pool import PostgresConnector
 from src.core.llm_provider import get_llm, get_provider, clear_cache as clear_llm_cache
 from src.core.react_agent import ReActSQLAgent
 from src.core.token_callback import TokenUsageCallback
+from src.core.catalogue import build_context
 
 
 # ============================================================================
@@ -202,7 +203,7 @@ class AuryaV3:
             if state["category"] == "greetings":
                 state["output"] = raw_response.get("output")
             else:
-                state["examples"] = get_example(raw_response)
+                state["examples"] = build_context(state["category"])
 
         except Exception as e:
             print(f"[Router] Error: {e}")

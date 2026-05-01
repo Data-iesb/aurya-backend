@@ -35,37 +35,72 @@ Always prefer querying from the **gold** layer unless the user explicitly asks a
 Available tables in the datalake (Medallion Architecture):
 
 <table>
-Table: gold.sus_aih (primary — use this by default)
-
+Table: gold.sus_aih (saúde — procedimentos hospitalares)
 SUS hospital procedures (AIH) aggregated monthly by municipality.
-108,224 rows | Years: 2019, 2025 | 27 UFs | ~5,300 municipalities.
+445,613 rows | Years: 2019-2025 | 27 UFs | ~5,300 municipalities.
+Dimensions: ano, mes, municipio, uf, uf_nome, regiao, cod_municipio, capital, latitude, longitude
+Totals: qtd_total, vl_total
+Procedure groups (qty): qtd_prevencao, qtd_diagnostico, qtd_clinico, qtd_cirurgico, qtd_transplante, qtd_medicamento, qtd_ortese_protese, qtd_complementar
+Procedure groups (R$): vl_diagnostico, vl_clinico, vl_cirurgico, vl_transplante, vl_medicamento, vl_ortese_protese, vl_complementar
+Clinical subgroups: qtd_consultas, qtd_fisioterapia, qtd_oncologia, qtd_nefrologia, qtd_odontologia + vl_*
+Rules: SUM() quantities/values, ano/mes are INTEGER, capital is BOOLEAN, LIMIT not TOP
+</table>
 
-Dimensions:
-  ano (INTEGER), mes (INTEGER), municipio (VARCHAR), uf (VARCHAR), uf_nome (VARCHAR),
-  regiao (VARCHAR), cod_municipio (VARCHAR), capital (BOOLEAN), latitude, longitude
+<table>
+Table: gold.sus_procedimento_ambulatorial (saúde — procedimentos ambulatoriais)
+SUS outpatient procedures by municipality/month. 111,420 rows.
+Dimensions: ano, mes, municipio, cod_municipio, uf, uf_nome, regiao, capital, latitude, longitude
+Measures: qtd_total, qtd_prevencao, qtd_diagnostico, qtd_clinico, qtd_cirurgico, qtd_transplante, qtd_medicamento, qtd_ortese_protese, qtd_complementar
+Rules: Same structure as sus_aih but for outpatient (ambulatorial) procedures
+</table>
 
-Totals:
-  qtd_total (INTEGER) — total procedures
-  vl_total (DOUBLE) — total value in R$
+<table>
+Table: gold.educacao_basica (educação — Censo Escolar 2024)
+Schools aggregated by municipality. 5,570 rows.
+Dimensions: ano, municipio, cod_municipio, uf, uf_nome, regiao
+Schools: qt_escolas, qt_escolas_publica, qt_escolas_privada, qt_escolas_urbana, qt_escolas_rural
+Enrollment: qt_mat_total, qt_mat_infantil, qt_mat_fundamental, qt_mat_medio, qt_mat_eja, qt_mat_especial, qt_mat_profissional
+Resources: qt_docentes, qt_turmas, qt_escolas_internet, qt_escolas_biblioteca, qt_escolas_lab_info, qt_escolas_quadra
+Rules: Already aggregated by município — SUM() when grouping by uf/regiao
+</table>
 
-Procedure groups (quantity):
-  qtd_prevencao, qtd_diagnostico, qtd_clinico, qtd_cirurgico,
-  qtd_transplante, qtd_medicamento, qtd_ortese_protese, qtd_complementar
+<table>
+Table: gold.educacao_superior (educação — ensino superior)
+Higher education by municipality × area × network. 31,599 rows.
+Dimensions: ano, municipio, cod_municipio, uf, uf_nome, regiao, capital, area_conhecimento, tp_rede
+Measures: qt_cursos, qt_vagas, qt_ingressantes, qt_matriculas, qt_concluintes, qt_ing_feminino, qt_ing_masculino, qt_mat_fies, qt_mat_prouni
+</table>
 
-Procedure groups (value R$):
-  vl_diagnostico, vl_clinico, vl_cirurgico, vl_transplante,
-  vl_medicamento, vl_ortese_protese, vl_complementar
+<table>
+Table: gold.enem_2024 (educação — ENEM)
+ENEM 2024 averages by municipality. 1,746 rows.
+Dimensions: ano, municipio, cod_municipio, uf, uf_nome, regiao, capital
+Measures: qt_participantes, media_cn, media_ch, media_lc, media_mt, media_redacao, media_geral
+Rules: Averages are per município — use AVG() when grouping by uf/regiao
+</table>
 
-Clinical subgroups:
-  qtd_consultas, qtd_fisioterapia, qtd_oncologia, qtd_nefrologia, qtd_odontologia
-  vl_consultas, vl_fisioterapia, vl_oncologia, vl_nefrologia, vl_odontologia
+<table>
+Table: gold.acidentes_transito (segurança — acidentes)
+Traffic accidents by municipality/year/month. 2,613 rows.
+Dimensions: ano, mes, municipio, cod_municipio, uf
+Measures: qt_acidentes, qt_acidentes_obito, qt_envolvidos, qt_feridos, qt_obitos
+Rules: No regiao/uf_nome columns — use uf only. SUM() when grouping.
+</table>
 
-Key rules:
-- ano/mes are INTEGER — compare without quotes: WHERE ano = 2025
-- Always SUM() quantities and values (data is per municipality/month)
-- Use LIMIT (not TOP), Trino SQL syntax
-- capital is BOOLEAN: WHERE capital = true
-- regiao values: 'Norte','Nordeste','Sudeste','Sul','Centro-Oeste'
+<table>
+Table: gold.ocorrencias_criminais (segurança — ocorrências)
+Criminal occurrences by municipality/year/event type. 2,610 rows.
+Dimensions: ano, municipio, cod_municipio, uf, evento
+Measures: qt_feminino (DOUBLE), qt_masculino (DOUBLE), qt_total (DOUBLE)
+Rules: Use evento to filter crime type. ROUND() for DOUBLE values.
+</table>
+
+<table>
+Table: gold.demografia_municipios (demografia — Censo 2022)
+Population by municipality from Census 2022. 5,570 rows.
+Dimensions: ano, municipio, cod_municipio, uf, uf_nome, regiao, capital
+Measures: populacao_total, populacao_masculina, populacao_feminina, pop_0_14, pop_15_64, pop_65_mais
+Rules: Single year snapshot. SUM() when grouping by uf/regiao. NULLIF for division.
 </table>
 
 <table>

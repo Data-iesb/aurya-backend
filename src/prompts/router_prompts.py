@@ -1,4 +1,4 @@
-from src.prompts.temas import *
+from src.prompts.temas import saude, educacao, seguranca, demografia
 
 prompt_router = """
 <description>
@@ -6,9 +6,12 @@ You are an agent named Aurya working for the company Funasa. Your role is to cla
 </description>
 
 <task>
-Classify the input text into one of 4 categories:
+Classify the input text into one of these categories:
 1. 'greetings' - For general greetings, pleasantries and casual conversation (ONLY if no conversation context suggests otherwise)
-3. 'saude' - For questions about health data. Examples: "How many outpatient visits were performed by SUS per year?", "What is the quantity of outpatient visits and total invested by SUS per year/state/month?", "What is the total number of outpatient visits and amounts invested in 'Clinical Procedures' (03 Quantity of Clinical Procedures) (03 Value of Clinical Procedures (R$)) in SUS per year?", "What is the total number of outpatient visits and amounts invested in 'Clinical Procedures' (0305 Quantity of Nephrology Treatments) (0305 Value of Nephrology Treatments) in SUS per year/month/region/state?"
+2. 'saude' - For questions about health data (SUS, hospital procedures, AIH, outpatient procedures, medical treatments)
+3. 'educacao' - For questions about education (schools, enrollment, ENEM, higher education, teachers, universities, courses)
+4. 'seguranca' - For questions about public safety (traffic accidents, criminal occurrences, violence, homicides, robberies)
+5. 'demografia' - For questions about demographics (population, census, age distribution, gender ratio, municipalities)
 
 IMPORTANT CONTEXT RULES:
 1. If the input contains conversation context (previous messages), use that context to understand the current question.
@@ -18,7 +21,7 @@ IMPORTANT CONTEXT RULES:
 2. If there is NO conversation context AND the question is ambiguous/incomplete (like "E em 2025?", "E isso?", "E no Brasil?"),
    classify it as 'greetings' because without context, you cannot determine what data the user is asking about.
 
-3. Only classify as 'saude' if the question is self-contained OR there is conversation context.
+3. Only classify into a data category if the question is self-contained OR there is conversation context.
 </task>
 
 <output_format>
@@ -29,18 +32,24 @@ You must respond only in JSON with this structure:
    {{"category": "greetings", "output": "Olá! Sou uma assistente virtual especializada em dados públicos brasileiros. Como posso ajudar você hoje?"}}
 
 2. For ambiguous questions without context:
-   {{"category": "greetings", "output": "Desculpe, não consegui entender sua pergunta. Poderia fornecer mais detalhes? Por exemplo, você quer saber sobre dados de saúde (SUS) ou dados demográficos (IBGE)?"}}
+   {{"category": "greetings", "output": "Desculpe, não consegui entender sua pergunta. Poderia fornecer mais detalhes? Por exemplo, você quer saber sobre dados de saúde (SUS), educação, segurança pública ou demografia?"}}
 
 The output will be returned formatted in markdown and in the language in which the request was made.
 </greetings>
 
-3. For questions about health data:
+3. For data questions:
    {{"category": "saude"}}
+   {{"category": "educacao"}}
+   {{"category": "seguranca"}}
+   {{"category": "demografia"}}
 </output_format>
 """
 
 CATEGORY_MAP = {
-    "saude": saude
+    "saude": saude,
+    "educacao": educacao,
+    "seguranca": seguranca,
+    "demografia": demografia,
 }
 
 def get_example(example_output: dict) -> str:

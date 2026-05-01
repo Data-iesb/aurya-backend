@@ -64,3 +64,47 @@ class TrinoConnector:
 
 PostgresConnector = TrinoConnector
 SQLServerConnector = TrinoConnector
+
+
+class PostgresReadConnector:
+    """Read-only Postgres via DATABASE_URL from Secrets Manager."""
+    _engine = None
+    _db = None
+
+    @classmethod
+    def _build_engine(cls):
+        if cls._engine is not None:
+            return cls._engine
+        url = os.getenv("DATABASE_URL")
+        if not url:
+            raise RuntimeError("DATABASE_URL not set")
+        print(f"[Postgres] Engine → {url.split('@')[1] if '@' in url else url}")
+        cls._engine = create_engine(url, pool_size=5, max_overflow=2, pool_pre_ping=True)
+        return cls._engine
+
+    @classmethod
+    def get_database(cls) -> SQLDatabase:
+        if cls._db is None:
+            engine = cls._build_engine()
+            cls._db = SQLDatabase(engine)
+            print(f"[Postgres] SQLDatabase ready — tables: {cls._db.get_usable_table_names()}")
+        return cls._db
+
+    @classmethod
+    def get_engine(cls):
+        return cls._build_engine()
+
+    @classmethod
+    async def get_pool_stats(cls) -> dict:
+        if cls._engine is None:
+            return {"status": "not_initialized"}
+        pool = cls._engine.pool
+        return {"status": "active", "backend": "postgres", "size": pool.size(), "checked_out": pool.checkedout()}
+
+    @classmethod
+    def clear_pool(cls):
+        if cls._engine is not None:
+            cls._engine.dispose()
+            cls._engine = None
+            cls._db = None
+            print("[Postgres] Disposed")

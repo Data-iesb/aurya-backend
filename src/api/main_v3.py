@@ -33,6 +33,7 @@ SESSION_TIMEOUT_MINUTES = 20
 CLEANUP_INTERVAL_SECONDS = 300
 
 # FastAPI app
+API_PREFIX = os.getenv("API_PREFIX", "")
 app = FastAPI(title="Aurya API V3", version="3.0.0")
 
 # CORS
@@ -128,7 +129,7 @@ async def cleanup_sessions():
 # WEBSOCKET
 # ============================================================================
 
-@app.websocket("/ws/{session_id}")
+@app.websocket(f"{API_PREFIX}/ws/{{session_id}}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     await websocket.accept()
     print(f"[WebSocket] Connected: {session_id}")
@@ -211,7 +212,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 # HTTP ENDPOINTS
 # ============================================================================
 
-@app.get("/")
+@app.get(f"{API_PREFIX}/")
 async def root():
     return {
         "service": "Aurya API V3",
@@ -222,7 +223,7 @@ async def root():
     }
 
 
-@app.get("/health")
+@app.get(f"{API_PREFIX}/health")
 async def health():
     return {
         "status": "healthy",
@@ -231,7 +232,7 @@ async def health():
     }
 
 
-@app.get("/sessions")
+@app.get(f"{API_PREFIX}/sessions")
 async def list_sessions():
     return {
         "total": len(sessions),
@@ -247,7 +248,7 @@ async def list_sessions():
     }
 
 
-@app.delete("/sessions/{session_id}")
+@app.delete(f"{API_PREFIX}/sessions/{{session_id}}")
 async def delete_session(session_id: str):
     async with sessions_dict_lock:
         if session_id in sessions:
@@ -256,7 +257,7 @@ async def delete_session(session_id: str):
         return {"status": "not_found", "session_id": session_id}
 
 
-@app.post("/reset_history/")
+@app.post(f"{API_PREFIX}/reset_history/")
 async def reset_history(data: ResetHistoryModel):
     """Limpa o histórico conversacional de uma sessão incrementando reset_count"""
     session_id = data.session_id
@@ -285,14 +286,14 @@ async def reset_history(data: ResetHistoryModel):
         return {"status": "success", "session_id": session_id, "message": "No session found"}
 
 
-@app.post("/feedback/")
+@app.post(f"{API_PREFIX}/feedback/")
 async def feedback(data: FeedbackModel):
     feedback_id = str(uuid.uuid4())
     print(f"[Feedback] {feedback_id}: {data.dict()}")
     return {"status": "success", "feedback_id": feedback_id}
 
 
-@app.get("/cache-stats")
+@app.get(f"{API_PREFIX}/cache-stats")
 async def cache_stats():
     from src.core.llm_provider import get_provider
     from src.core.postgres_pool import PostgresConnector
@@ -307,7 +308,7 @@ async def cache_stats():
     }
 
 
-@app.post("/cache-clear")
+@app.post(f"{API_PREFIX}/cache-clear")
 async def clear_caches():
     clear_all_caches()
     return {"status": "success", "message": "Caches cleared"}

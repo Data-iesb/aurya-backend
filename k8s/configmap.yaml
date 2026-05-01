@@ -9,4 +9,4 @@ data:
   TRINO_HOST: "trino.dataiesb.com"
   TRINO_PORT: "443"
   TRINO_USER: "admin"
-  TRINO_CATALOG: "seaweedfs"
+  TRINO_CATALOG: "datalake"

@@ -7,9 +7,11 @@ phases:
       - aws eks update-kubeconfig --name dataiesb-cluster --region us-east-1
   build:
     commands:
-      - docker build -t 248189947068.dkr.ecr.us-east-1.amazonaws.com/aurya-backend:latest .
+      - docker build -t 248189947068.dkr.ecr.us-east-1.amazonaws.com/aurya-backend-v2:latest .
   post_build:
     commands:
-      - docker push 248189947068.dkr.ecr.us-east-1.amazonaws.com/aurya-backend:latest
-      - kubectl rollout restart deployment aurya-backend -n custom
-      - kubectl rollout status deployment aurya-backend -n custom --timeout=120s
+      - docker push 248189947068.dkr.ecr.us-east-1.amazonaws.com/aurya-backend-v2:latest
+      - kubectl apply -f k8s/backend-v2.yaml
+      - kubectl apply -f k8s/ingress-v2.yaml
+      - kubectl rollout restart deployment aurya-backend-v2 -n custom
+      - kubectl rollout status deployment aurya-backend-v2 -n custom --timeout=120s

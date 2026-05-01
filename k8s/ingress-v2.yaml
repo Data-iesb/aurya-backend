@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aurya-ingress
+  namespace: custom
+  annotations:
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:248189947068:certificate/77d012f4-6507-4af0-9af7-ce75e6a56e08
+    alb.ingress.kubernetes.io/healthcheck-path: /v2/health
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  ingressClassName: alb
+  rules:
+  - host: aurya.dataiesb.com
+    http:
+      paths:
+      - path: /v2
+        pathType: Prefix
+        backend:
+          service:
+            name: aurya-backend-v2-svc
+            port:
+              number: 8000
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: aurya-frontend-svc
+            port:
+              number: 80
