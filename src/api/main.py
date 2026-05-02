@@ -188,10 +188,15 @@ async def tts(req: TTSRequest):
     clean = re.sub(r'\*\*', '', clean)
     clean = re.sub(r'`[^`]+`', '', clean)
     clean = clean.strip()[:3000]
-    polly = boto3.client("polly", region_name=os.getenv("AWS_DEFAULT_REGION", "us-east-1"))
+    region = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+    polly = boto3.client("polly", region_name=region)
+    s3 = boto3.client("s3", region_name=region)
     resp = polly.synthesize_speech(Text=clean, OutputFormat="mp3", VoiceId="Camila", Engine="neural")
-    from fastapi.responses import StreamingResponse
-    return StreamingResponse(resp["AudioStream"], media_type="audio/mpeg")
+    key = f"tts/{uuid.uuid4().hex}.mp3"
+    bucket = "aurya.dataiesb.com"
+    s3.put_object(Bucket=bucket, Key=key, Body=resp["AudioStream"].read(), ContentType="audio/mpeg")
+    url = s3.generate_presigned_url("get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=300)
+    return {"url": url}
 
 
 @app.get("/health")
