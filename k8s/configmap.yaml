@@ -8,5 +8,5 @@ data:
   AWS_DEFAULT_REGION: "us-east-1"
   TRINO_HOST: "trino.dataiesb.com"
   TRINO_PORT: "443"
-  TRINO_USER: "admin"
-  TRINO_CATALOG: "datalake"
+  TRINO_USER: "aurya"
+  FUNASA_TRINO_CATALOG: "seaweedfs"

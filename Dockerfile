@@ -21,4 +21,4 @@ ENV LANGCHAIN_TRACING_V2=true \
 
 EXPOSE 8000
 
-CMD ["uvicorn", "src.api.main_v3:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
