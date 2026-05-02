@@ -62,7 +62,7 @@ class ReActSQLAgent:
         text = re.sub(r'Action Input:.*?(?=\n|$)', '', text, flags=re.IGNORECASE).strip()
         return text
 
-    async def run(self, question: str, examples: str = "", request_id: str = "", previous_messages: list = None) -> Dict[str, Any]:
+    async def run(self, question: str, examples: str = "", request_id: str = "", previous_messages: list = None, **kwargs) -> Dict[str, Any]:
         """
         Executa o loop ReAct para responder a pergunta.
 
@@ -76,7 +76,7 @@ class ReActSQLAgent:
             Dict com 'output', 'sql_query', 'iterations', 'token_usage'
         """
         # Construir prompt completo com histórico conversacional
-        prompt = self._build_prompt(question, examples, previous_messages or [])
+        prompt = self._build_prompt(question, examples, previous_messages or [], **kwargs)
 
         conversation_history = []
         sql_query = None

@@ -13,8 +13,9 @@ from langgraph.graph import StateGraph, END, START
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
 
-from src.prompts.prompts import ROUTER_PROMPT, AGENT_PREFIX, get_examples
+from src.prompts.prompts import ROUTER_PROMPT, get_examples
 from src.prompts.response_prompts import AURYA_SUFFIX
+from src.core.catalogue import build_context
 from src.core.trino import TrinoConnection
 from src.core.llm_provider import get_llm
 from src.core.react_agent import ReActSQLAgent
@@ -117,6 +118,7 @@ class AuryaAgent:
             result = await self.sql_agent.run(
                 question=state["input"], examples=get_examples(state["category"]),
                 request_id="", previous_messages=prev,
+                category=state["category"],
             )
             state["output"] = result["output"]
             state["sql_query"] = result["sql_query"]
@@ -171,7 +173,8 @@ class AuryaAgent:
 class _AuryaReActAgent(ReActSQLAgent):
     """Override _build_prompt to use Aurya-specific prefix."""
 
-    def _build_prompt(self, question: str, examples: str, previous_messages: list = None) -> str:
+    def _build_prompt(self, question: str, examples: str, previous_messages: list = None, category: str = "saude", **kwargs) -> str:
+        ctx = build_context(category)
         system_prefix = "Use the following format:\n\nQuestion: the input question you must answer\nThought: you should always think about what to do\nAction: the action to take, should be one of [sql_db_query, final_answer]\nAction Input: the input to the action\nObservation: the result of the action\n... (this Thought/Action/Action Input/Observation can repeat N times)\nThought: I now know the final answer\nFinal Answer: the final response formatted in markdown.\n"
 
         conversation_context = ""
@@ -182,10 +185,23 @@ class _AuryaReActAgent(ReActSQLAgent):
                 conversation_context += f"{role}: {msg.content}\n\n"
             conversation_context += "</conversation_history>\n"
 
-        return f"""{AGENT_PREFIX}
+        return f"""<description>
+You are an expert analyst in Brazilian public data who queries a SQL datalake via Trino.
+Given a question, create a Trino SQL query, execute it, and return a markdown-formatted answer in PT-BR.
+</description>
+
+{ctx}
+
+<prohibition>
+DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.).
+Never use HAVING clause on analytic function columns.
+Use LIMIT N (not TOP N). Use Trino SQL syntax.
+Percentages MUST have two decimal places.
+Always prefix table names with gold.
+</prohibition>
 
 <tools>
-1. sql_db_query: Execute a Trino SQL query on gold schema tables
+1. sql_db_query: Execute a Trino SQL query
 2. final_answer: Provide the final markdown answer
 </tools>
 
@@ -193,10 +209,6 @@ class _AuryaReActAgent(ReActSQLAgent):
 
 {AURYA_SUFFIX}
 {conversation_context}
-<examples>
-{examples or ''}
-</examples>
-
 Question: {question}
 """
 

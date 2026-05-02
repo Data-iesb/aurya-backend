@@ -101,12 +101,24 @@ def get_metadata(table_full_name: str) -> Optional[dict]:
     return items[0] if items else None
 
 
+CATEGORY_TABLES = {
+    "saude": ["sus_aih", "sus_procedimento_ambulatorial"],
+    "educacao": ["educacao_basica", "educacao_superior", "enem_2024"],
+    "seguranca": ["acidentes_transito", "ocorrencias_criminais"],
+    "demografia": ["demografia_municipios"],
+}
+
+
 def build_context(category: str, layer: str = "gold") -> str:
     parts = []
     schemas = get_all_schemas(layer)
+    allowed = CATEGORY_TABLES.get(category)
     if schemas:
         parts.append("<available_tables>")
         for s in schemas:
+            table_name = s.get("table_name", s["SK"])
+            if allowed and table_name not in allowed:
+                continue
             meta = get_metadata(s.get("table_name", ""))
             parts.append(f"\nTable: {s.get('table_name', s['SK'])}")
             parts.append(f"Description: {s.get('description', '')}")
