@@ -9,12 +9,12 @@ Usuário (WebSocket)
     │
     ▼
 ┌─────────────────────────────────────────────┐
-│  FastAPI (main_v3.py)                       │
+│  FastAPI (main.py)                          │
 │  ├── WebSocket /ws/{session_id}             │
 │  ├── Sessions + concurrency control         │
-│  └── LangGraph state management             │
+│  └── API Key auth (x-api-key header)        │
 ├─────────────────────────────────────────────┤
-│  Aurya V3 (aurya_v3.py)                     │
+│  Aurya FUNASA (aurya_funasa.py)             │
 │  ├── Router Node    → classifica a pergunta │
 │  ├── SQL Agent Node → gera e executa SQL    │
 │  └── Format Node    → formata resposta      │
@@ -23,8 +23,8 @@ Usuário (WebSocket)
 │  ├── Gemini (default)                       │
 │  └── Bedrock (fallback)                     │
 ├─────────────────────────────────────────────┤
-│  Trino (postgres_pool.py)                   │
-│  └── seaweedfs catalog → bronze/silver/gold │
+│  Trino FUNASA (trino_funasa.py)             │
+│  └── catalog isolado → gold.sus_aih apenas  │
 └─────────────────────────────────────────────┘
 ```
 
@@ -40,37 +40,11 @@ Usuário (WebSocket)
    - Repete se necessário (até 5 iterações)
    - Formata resposta final em Markdown
 
-## Datalake — Arquitetura Medalhão
-
-```
-SQL Server (fonte)          SeaweedFS (S3-compatible storage)
-    │                           │
-    │  Trino sqlserver catalog  │  Trino seaweedfs catalog
-    │                           │
-    ▼                           ▼
-┌──────────┐  CTAS   ┌──────────────────────────────────────┐
-│ dbo.*    │ ──────► │  bronze.*    dados brutos (Parquet)  │
-└──────────┘         │  silver.*    limpos e tipados        │
-                     │  gold.*      prontos para consumo    │
-                     └──────────────────────────────────────┘
-                                    ▲
-                                    │
-                              Aurya consulta aqui
-```
-
-### Camadas
-
-| Camada | Schema | Regra | Uso |
-|--------|--------|-------|-----|
-| **Bronze** | `bronze.*` | Cópia fiel da fonte. Nunca alterar. | Lineage, reprocessamento |
-| **Silver** | `silver.*` | Limpo, tipado, padronizado. | Análise detalhada |
-| **Gold** | `gold.*` | Curado, enriquecido, colunas legíveis. | **Agente usa por padrão** |
-
-### Tabela principal: `gold.sus_aih`
+## Datalake — Tabela `gold.sus_aih`
 
 Dados mensais de procedimentos hospitalares do SUS (AIH/DATASUS), agregados por município.
 
-- **108.224 linhas** | Anos: 2019, 2025 | 27 UFs | ~5.300 municípios
+- **445.613 linhas** | Anos: 2019-2025 | 27 UFs | ~5.300 municípios
 - Cada linha = 1 município em 1 mês
 
 **Colunas principais:**
@@ -86,35 +60,54 @@ Dados mensais de procedimentos hospitalares do SUS (AIH/DATASUS), agregados por 
 | `vl_clinico`, `vl_cirurgico`, `vl_diagnostico`... | DOUBLE | Valor por grupo (R$) |
 | `qtd_oncologia`, `qtd_nefrologia`, `qtd_fisioterapia`... | INTEGER | Subgrupos clínicos |
 
-### Catálogos Trino
+## API
 
-| Catálogo | Conector | Descrição |
-|----------|----------|-----------|
-| `seaweedfs` | Hive (S3) | Datalake medalhão (bronze/silver/gold) |
-| `sqlserver` | SQL Server | Fonte original (FUNASA SQL Server) |
-| `tpch` | TPC-H | Benchmark/testes |
+| Endpoint | Método | Auth | Descrição |
+|----------|--------|------|-----------|
+| `/` | GET | Não | Info do serviço |
+| `/health` | GET | Não | Health check |
+| `/ws/{session_id}` | WebSocket | Sim | Chat (enviar JSON com `input_string`) |
+| `/reset_history/` | POST | Sim | Limpar histórico de sessão |
+| `/feedback/` | POST | Sim | Enviar feedback |
 
-### Ingestão (SQL Server → Bronze)
+### Autenticação
 
-```sql
--- Via Trino (sem scripts Python)
-CREATE TABLE bronze.sus_aih WITH (format = 'PARQUET') AS
-SELECT * FROM sqlserver.dbo.sus_aih;
+Todas as rotas (exceto `/` e `/health`) exigem API key:
+
+```bash
+# Via header
+curl -H "x-api-key: SUA_CHAVE" https://api.dataiesb.com/aurya/sessions
+
+# Via query param
+curl https://api.dataiesb.com/aurya/sessions?api_key=SUA_CHAVE
 ```
 
-## LLM Provider
+### Exemplo — WebSocket
 
-Troca de modelo via variável de ambiente — sem alterar código.
+```python
+import asyncio, json, websockets
 
-| Provider | `LLM_PROVIDER` | Modelos default | Requer |
-|----------|----------------|-----------------|--------|
-| **Gemini** | `gemini` | flash-lite (router), flash (agent) | `GOOGLE_API_KEY` |
-| **Bedrock** | `bedrock` | Haiku 3.5 (router), Haiku 4.5 (agent) | AWS credentials |
+API_KEY = ""  # Solicite a chave de acesso
 
-Override de modelos:
-```bash
-FAST_MODEL=gemini-2.0-flash-lite    # router
-PRIMARY_MODEL=gemini-2.0-flash       # sql agent
+async def ask(question):
+    url = f"wss://api.dataiesb.com/aurya/ws/minha-sessao?api_key={API_KEY}"
+    async with websockets.connect(url) as ws:
+        await ws.send(json.dumps({"input_string": question}))
+        resp = json.loads(await ws.recv())
+        print(resp["answer"])
+
+asyncio.run(ask("Qual o gasto do SUS por região em 2025?"))
+```
+
+Resposta:
+
+```json
+{
+  "answer": "## Gasto por região\n| Região | Valor |...",
+  "query": "SELECT regiao, SUM(vl_total)...",
+  "category": "saude",
+  "timing": {"router": 0.5, "sql_agent": 3.2, "total": 3.7}
+}
 ```
 
 ## Setup local
@@ -127,22 +120,25 @@ pip install -r src/requirements.txt
 
 ### 2. Configurar `.env`
 
-Criar `src/.env`:
+Criar `.env` na raiz:
 
 ```env
 # LLM
 LLM_PROVIDER=bedrock
 AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=...
-AWS_SECRET_ACCESS_KEY=...
 
 # Trino
 TRINO_HOST=trino.dataiesb.com
 TRINO_PORT=443
-TRINO_USER=admin
-TRINO_PASSWORD=...
-TRINO_CATALOG=seaweedfs
+TRINO_USER=aurya
+TRINO_PASSWORD=***          # Ver Secrets Manager: trino/aurya
+FUNASA_TRINO_CATALOG=seaweedfs
+
+# Auth
+API_KEY=***                  # Ver Secrets Manager ou k8s secret aurya-secret
 ```
+
+Credenciais Trino estão no AWS Secrets Manager: `trino/aurya`
 
 ### 3. Iniciar
 
@@ -153,65 +149,54 @@ TRINO_CATALOG=seaweedfs
 ### 4. Testar
 
 ```bash
-python3 test_api.py
-```
-
-## API
-
-| Endpoint | Método | Descrição |
-|----------|--------|-----------|
-| `/` | GET | Info do serviço |
-| `/health` | GET | Health check |
-| `/sessions` | GET | Sessões ativas |
-| `/ws/{session_id}` | WebSocket | Chat (enviar JSON com `input_string`) |
-| `/reset_history/` | POST | Limpar histórico de sessão |
-| `/feedback/` | POST | Enviar feedback |
-| `/cache-stats` | GET | Estatísticas de cache |
-| `/cache-clear` | POST | Limpar caches |
-
-### WebSocket — formato de mensagem
-
-```json
-// Enviar
-{"input_string": "Qual o gasto do SUS por região?", "message_id": "msg-1"}
-
-// Receber
-{
-  "answer": "## Gasto por região\n| Região | Valor |...",
-  "query": "SELECT regiao, SUM(vl_total)...",
-  "category": "saude",
-  "timing": {"router": 0.5, "sql_agent": 3.2, "total": 3.7},
-  "message_id": "msg-1"
-}
+python3 example.py "Quantos procedimentos o SUS realizou em 2025?"
 ```
 
 ## Deploy (Kubernetes)
 
+O deploy é automático via GitHub Actions ao fazer push na branch `v1`.
+
+Pipeline: push → build Docker → push ECR → apply k8s → rollout
+
+### Manifests
+
 ```bash
-# Aplicar manifests
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/configmap.yaml
-kubectl apply -f k8s/serviceaccount.yaml
-kubectl apply -f k8s/backend.yaml
-kubectl apply -f k8s/ingress.yaml
+kubectl apply -f k8s/configmap.yaml   # Env vars (LLM_PROVIDER, TRINO_HOST, etc.)
+kubectl apply -f k8s/backend.yaml     # Deployment + Service
 ```
+
+### Secrets
+
+O `aurya-secret` no namespace `custom` contém:
+- `TRINO_PASSWORD` — senha do Trino
+- `TRINO_USER` — usuário do Trino
+- `API_KEY` — chave de acesso da API
+- `DATABASE_URL` — conexão Postgres (catálogo)
+
+### Endpoints em produção
+
+| URL | Descrição |
+|-----|-----------|
+| `https://api.dataiesb.com/aurya/` | API REST |
+| `wss://api.dataiesb.com/aurya/ws/{session}` | WebSocket |
+| `https://api.dataiesb.com/aurya/health` | Health check |
 
 ## Estrutura do projeto
 
 ```
 src/
 ├── api/
-│   └── main_v3.py              # FastAPI + WebSocket
+│   └── main.py                 # FastAPI + WebSocket + auth
 ├── core/
-│   ├── aurya_v3.py             # Agente principal (LangGraph)
+│   ├── aurya_funasa.py         # Agente FUNASA (LangGraph, saude only)
+│   ├── trino_funasa.py         # Conexão Trino isolada (gold.sus_aih)
 │   ├── react_agent.py          # ReAct loop (Thought→Action→Observation)
 │   ├── llm_provider.py         # Factory: Gemini / Bedrock
 │   ├── bedrock_lazy.py         # Wrapper lazy para Bedrock
-│   ├── postgres_pool.py        # Conexão Trino (SQLAlchemy)
 │   └── token_callback.py       # Tracking de tokens
 ├── prompts/
-│   ├── react_prompts.py        # Prompt do agente SQL (schema, regras)
-│   ├── router_prompts.py       # Prompt do classificador
+│   ├── funasa_prompts.py       # Prompts FUNASA (router + SQL agent)
+│   ├── react_prompts.py        # Prompt base do agente SQL
 │   ├── temas.py                # Exemplos de queries por tema
 │   ├── response_prompts.py     # Regras de formatação
 │   └── prompt_base.py          # Composição dos prompts
@@ -221,10 +206,12 @@ src/
 k8s/
 ├── backend.yaml                # Deployment + Service
 ├── configmap.yaml              # Env vars
-├── ingress.yaml                # Ingress rules
 ├── namespace.yaml
 └── serviceaccount.yaml
 
+.github/workflows/
+└── deploy.yaml                 # CI/CD GitHub Actions
+
+example.py                      # Script exemplo de uso
 start.sh                        # Iniciar servidor local
-test_api.py                     # Testes HTTP + WebSocket
 ```
