@@ -2,7 +2,7 @@ from src.prompts.temas import saude, educacao, seguranca, demografia
 
 prompt_router = """
 <description>
-You are an agent named Aurya. Your role is to classify user inputs about Brazilian public data.
+You are an agent specialized in classifying user inputs about Brazilian public data.
 </description>
 
 <task>

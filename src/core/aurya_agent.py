@@ -13,7 +13,7 @@ from langgraph.graph import StateGraph, END, START
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
 
-from src.prompts.prompts import ROUTER_PROMPT, AGENT_PREFIX, AGENT_EXAMPLES
+from src.prompts.prompts import ROUTER_PROMPT, AGENT_PREFIX, get_examples
 from src.prompts.response_prompts import AURYA_SUFFIX
 from src.core.trino import TrinoConnection
 from src.core.llm_provider import get_llm
@@ -115,7 +115,7 @@ class AuryaAgent:
         try:
             prev = state["messages"][:-1] if len(state["messages"]) > 1 else []
             result = await self.sql_agent.run(
-                question=state["input"], examples=AGENT_EXAMPLES,
+                question=state["input"], examples=get_examples(state["category"]),
                 request_id="", previous_messages=prev,
             )
             state["output"] = result["output"]
