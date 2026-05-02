@@ -54,6 +54,10 @@ class ReActSQLAgent:
         self.verbose = verbose
         self.model_id = model_id
 
+    @staticmethod
+    def _clean_output(text: str) -> str:
+        return re.sub(r'(?:^|\n)\s*Thought:.*?(?=\n(?:##|[A-Z]|\|)|$)', '', text, flags=re.DOTALL | re.IGNORECASE).strip()
+
     async def run(self, question: str, examples: str = "", request_id: str = "", previous_messages: list = None) -> Dict[str, Any]:
         """
         Executa o loop ReAct para responder a pergunta.
@@ -123,7 +127,7 @@ class ReActSQLAgent:
                 if not action:
                     # LLM não seguiu formato, retornar texto diretamente
                     return {
-                        "output": response_text,
+                        "output": self._clean_output(response_text),
                         "sql_query": sql_query,
                         "iterations": iterations,
                         "token_usage": {
@@ -141,7 +145,7 @@ class ReActSQLAgent:
                 # Executar ação
                 if action == "final_answer":
                     return {
-                        "output": action_input,
+                        "output": self._clean_output(action_input),
                         "sql_query": sql_query,
                         "iterations": iterations,
                         "token_usage": {

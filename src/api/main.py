@@ -39,7 +39,7 @@ app.add_middleware(
 
 @app.middleware("http")
 async def check_api_key(request: Request, call_next):
-    if request.url.path in ("/", "/health", "/questions"):
+    if request.url.path in ("/", "/health", "/questions", "/tts"):
         return await call_next(request)
     key = request.headers.get("x-api-key") or request.query_params.get("api_key")
     if key != API_KEY:
@@ -173,6 +173,25 @@ async def questions():
         examples = get_examples(cat)
         result[cat] = [ex.get("question") for ex in examples[:3] if ex.get("question")]
     return result
+
+
+class TTSRequest(BaseModel):
+    text: str
+
+
+@app.post("/tts")
+async def tts(req: TTSRequest):
+    import boto3, re
+    clean = re.sub(r'\|[^\n]+\|', '', req.text)
+    clean = re.sub(r'[-]{2,}', '', clean)
+    clean = re.sub(r'#{1,3}\s*', '', clean)
+    clean = re.sub(r'\*\*', '', clean)
+    clean = re.sub(r'`[^`]+`', '', clean)
+    clean = clean.strip()[:3000]
+    polly = boto3.client("polly", region_name=os.getenv("AWS_DEFAULT_REGION", "us-east-1"))
+    resp = polly.synthesize_speech(Text=clean, OutputFormat="mp3", VoiceId="Camila", Engine="neural")
+    from fastapi.responses import StreamingResponse
+    return StreamingResponse(resp["AudioStream"], media_type="audio/mpeg")
 
 
 @app.get("/health")
