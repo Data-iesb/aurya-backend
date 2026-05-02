@@ -1,5 +1,5 @@
 """
-Trino Connection for FUNASA — isolated catalog, gold.sus_aih only.
+Trino Connection — gold schema.
 """
 
 import os
@@ -8,7 +8,7 @@ from sqlalchemy.pool import StaticPool
 from langchain_community.utilities import SQLDatabase
 
 
-class TrinoFunasa:
+class TrinoConnection:
     _engine = None
     _db = None
 
@@ -21,7 +21,7 @@ class TrinoFunasa:
         port = os.getenv("TRINO_PORT", "443")
         user = os.getenv("TRINO_USER", "admin")
         password = os.getenv("TRINO_PASSWORD", "")
-        catalog = os.getenv("FUNASA_TRINO_CATALOG", "seaweedfs")
+        catalog = os.getenv("TRINO_CATALOG", "datalake")
 
         if password:
             url = f"trino://{user}:{password}@{host}:{port}/{catalog}/gold"
@@ -30,7 +30,7 @@ class TrinoFunasa:
 
         connect_args = {"http_scheme": "https" if port == "443" else "http"}
 
-        print(f"[Trino-FUNASA] Engine → {host}:{port}/{catalog}/gold")
+        print(f"[Trino] Engine → {host}:{port}/{catalog}/gold")
         cls._engine = create_engine(url, connect_args=connect_args, poolclass=StaticPool)
         return cls._engine
 
@@ -39,7 +39,7 @@ class TrinoFunasa:
         if cls._db is None:
             engine = cls._build_engine()
             cls._db = SQLDatabase(engine, include_tables=["sus_aih"])
-            print(f"[Trino-FUNASA] SQLDatabase ready — tables: {cls._db.get_usable_table_names()}")
+            print(f"[Trino] SQLDatabase ready — tables: {cls._db.get_usable_table_names()}")
         return cls._db
 
     @classmethod
@@ -48,4 +48,4 @@ class TrinoFunasa:
             cls._engine.dispose()
             cls._engine = None
             cls._db = None
-            print("[Trino-FUNASA] Disposed")
+            print("[Trino] Disposed")

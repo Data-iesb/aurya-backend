@@ -1,5 +1,5 @@
 """
-Aurya FUNASA — isolated agent for FUNASA site. Saude only, gold.sus_aih only.
+Aurya Agent — multi-domain agent for Brazilian public data.
 """
 
 import time
@@ -13,15 +13,15 @@ from langgraph.graph import StateGraph, END, START
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
 
-from src.prompts.funasa_prompts import FUNASA_ROUTER_PROMPT, FUNASA_PREFIX, FUNASA_EXAMPLES
+from src.prompts.prompts import ROUTER_PROMPT, AGENT_PREFIX, AGENT_EXAMPLES
 from src.prompts.response_prompts import AURYA_SUFFIX
-from src.core.trino_funasa import TrinoFunasa
+from src.core.trino import TrinoConnection
 from src.core.llm_provider import get_llm
 from src.core.react_agent import ReActSQLAgent
 from src.core.token_callback import TokenUsageCallback
 
 
-class FunasaState(TypedDict):
+class AgentState(TypedDict):
     input: str
     category: Optional[str]
     messages: Annotated[List, add_messages]
@@ -31,31 +31,30 @@ class FunasaState(TypedDict):
     token_usage: Dict[str, Dict[str, int]]
 
 
-class AuryaFunasa:
-    """Aurya agent isolated for FUNASA — only saude domain, only gold.sus_aih."""
+class AuryaAgent:
+    """Aurya agent for Brazilian public data queries."""
 
     def __init__(self, verbose: bool = False):
         self.verbose = verbose
         self._response_cache: Dict[str, Dict] = {}
         self._cache_max = 200
 
-        print("🏥 [Aurya-FUNASA] Inicializando...")
+        print("🚀 [Aurya] Inicializando...")
 
-        self.db = TrinoFunasa.get_database()
+        self.db = TrinoConnection.get_database()
         self.llm_fast = get_llm(role="fast", temperature=0.0, max_tokens=2048)
         self.llm_primary = get_llm(
             role="primary", temperature=0.0, max_tokens=4096,
             stop_sequences=["\nObservation"],
         )
 
-        # SQL Agent with FUNASA-specific prompts injected via subclass override
-        self.sql_agent = _FunasaReActAgent(
+        self.sql_agent = _AuryaReActAgent(
             llm=self.llm_primary, db=self.db,
             max_iterations=5, verbose=verbose,
         )
 
         router_template = ChatPromptTemplate.from_messages([
-            ("system", FUNASA_ROUTER_PROMPT),
+            ("system", ROUTER_PROMPT),
             ("user", "{input}")
         ])
         self.parser = JsonOutputParser()
@@ -63,10 +62,10 @@ class AuryaFunasa:
 
         self.checkpointer = MemorySaver()
         self.graph = self._build_graph()
-        print("✅ [Aurya-FUNASA] Pronta!")
+        print("✅ [Aurya] Pronta!")
 
     def _build_graph(self) -> StateGraph:
-        workflow = StateGraph(FunasaState)
+        workflow = StateGraph(AgentState)
         workflow.add_node("router", self._router_node)
         workflow.add_node("sql_agent", self._sql_agent_node)
         workflow.add_node("format_output", self._format_output_node)
@@ -81,7 +80,7 @@ class AuryaFunasa:
         workflow.add_edge("format_output", END)
         return workflow.compile(checkpointer=self.checkpointer)
 
-    async def _router_node(self, state: FunasaState) -> FunasaState:
+    async def _router_node(self, state: AgentState) -> AgentState:
         start = time.time()
         token_cb = TokenUsageCallback()
         try:
@@ -105,18 +104,18 @@ class AuryaFunasa:
             if state["category"] == "greetings":
                 state["output"] = raw.get("output")
         except Exception as e:
-            print(f"[FUNASA-Router] Error: {e}")
+            print(f"[Aurya-Router] Error: {e}")
             state["category"] = "greetings"
-            state["output"] = "Olá! Sou a Aurya da FUNASA. Como posso ajudar com dados do SUS?"
+            state["output"] = "Olá! Sou a Aurya, especializada em dados públicos brasileiros. Como posso ajudar?"
             state["timing"]["router"] = time.time() - start
         return state
 
-    async def _sql_agent_node(self, state: FunasaState) -> FunasaState:
+    async def _sql_agent_node(self, state: AgentState) -> AgentState:
         start = time.time()
         try:
             prev = state["messages"][:-1] if len(state["messages"]) > 1 else []
             result = await self.sql_agent.run(
-                question=state["input"], examples=FUNASA_EXAMPLES,
+                question=state["input"], examples=AGENT_EXAMPLES,
                 request_id="", previous_messages=prev,
             )
             state["output"] = result["output"]
@@ -124,12 +123,12 @@ class AuryaFunasa:
             state["timing"]["sql_agent"] = time.time() - start
             state["token_usage"]["sql_agent"] = result.get("token_usage", {})
         except Exception as e:
-            print(f"[FUNASA-SQL] Error: {e}")
+            print(f"[Aurya-SQL] Error: {e}")
             state["output"] = "Desculpe, encontrei um erro ao processar sua pergunta."
             state["timing"]["sql_agent"] = time.time() - start
         return state
 
-    async def _format_output_node(self, state: FunasaState) -> FunasaState:
+    async def _format_output_node(self, state: AgentState) -> AgentState:
         if state.get("output"):
             state["messages"].append(AIMessage(content=state["output"]))
         return state
@@ -143,7 +142,7 @@ class AuryaFunasa:
             cached["timing"] = {"total": 0.0, "cache": "hit"}
             return cached
 
-        initial: FunasaState = {
+        initial: AgentState = {
             "input": user_input, "category": None,
             "messages": [HumanMessage(content=user_input)],
             "sql_query": None, "output": None,
@@ -169,8 +168,8 @@ class AuryaFunasa:
         return result
 
 
-class _FunasaReActAgent(ReActSQLAgent):
-    """Override _build_prompt to use FUNASA-specific prefix."""
+class _AuryaReActAgent(ReActSQLAgent):
+    """Override _build_prompt to use Aurya-specific prefix."""
 
     def _build_prompt(self, question: str, examples: str, previous_messages: list = None) -> str:
         system_prefix = "Use the following format:\n\nQuestion: the input question you must answer\nThought: you should always think about what to do\nAction: the action to take, should be one of [sql_db_query, final_answer]\nAction Input: the input to the action\nObservation: the result of the action\n... (this Thought/Action/Action Input/Observation can repeat N times)\nThought: I now know the final answer\nFinal Answer: the final response formatted in markdown.\n"
@@ -183,10 +182,10 @@ class _FunasaReActAgent(ReActSQLAgent):
                 conversation_context += f"{role}: {msg.content}\n\n"
             conversation_context += "</conversation_history>\n"
 
-        return f"""{FUNASA_PREFIX}
+        return f"""{AGENT_PREFIX}
 
 <tools>
-1. sql_db_query: Execute a Trino SQL query on gold.sus_aih
+1. sql_db_query: Execute a Trino SQL query on gold schema tables
 2. final_answer: Provide the final markdown answer
 </tools>
 
@@ -202,5 +201,5 @@ Question: {question}
 """
 
 
-def create_aurya_funasa(verbose: bool = False) -> AuryaFunasa:
-    return AuryaFunasa(verbose=verbose)
+def create_aurya_agent(verbose: bool = False) -> AuryaAgent:
+    return AuryaAgent(verbose=verbose)

@@ -21,7 +21,7 @@ class TrinoConnector:
         port = os.getenv("TRINO_PORT", "443")
         user = os.getenv("TRINO_USER", "admin")
         password = os.getenv("TRINO_PASSWORD", "")
-        catalog = os.getenv("TRINO_CATALOG", "seaweedfs")
+        catalog = os.getenv("TRINO_CATALOG", "datalake")
 
         # Include gold schema in URL so SQLDatabase doesn't issue USE statements
         if password:
@@ -63,7 +63,6 @@ class TrinoConnector:
 
 
 PostgresConnector = TrinoConnector
-SQLServerConnector = TrinoConnector
 
 
 class PostgresReadConnector:

@@ -1,5 +1,5 @@
 """
-Aurya Backend — FUNASA
+Aurya Backend
 """
 
 import os
@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from src.core.aurya_funasa import create_aurya_funasa, AuryaFunasa
+from src.core.aurya_agent import create_aurya_agent, AuryaAgent
 
 load_dotenv()
 
@@ -26,7 +26,7 @@ REQUEST_TIMEOUT_SECONDS = int(os.getenv("REQUEST_TIMEOUT_SECONDS", "300"))
 SESSION_TIMEOUT_MINUTES = 20
 CLEANUP_INTERVAL_SECONDS = 300
 
-app = FastAPI(title="Aurya FUNASA API", version="1.0.0")
+app = FastAPI(title="Aurya API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -56,7 +56,7 @@ async def check_api_key(request: Request, call_next):
         return JSONResponse(status_code=401, content={"error": "Invalid API key"})
     return await call_next(request)
 
-sessions: Dict[str, Tuple[AuryaFunasa, datetime, int]] = {}
+sessions: Dict[str, Tuple[AuryaAgent, datetime, int]] = {}
 session_locks: Dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
 sessions_dict_lock = asyncio.Lock()
 concurrency_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
@@ -82,7 +82,7 @@ class ResetHistoryModel(BaseModel):
     session_id: str
 
 
-async def get_or_create_session(session_id: str) -> Tuple[AuryaFunasa, int]:
+async def get_or_create_session(session_id: str) -> Tuple[AuryaAgent, int]:
     if session_id in sessions:
         aurya, _, reset_count = sessions[session_id]
         async with session_locks[session_id]:
@@ -95,7 +95,7 @@ async def get_or_create_session(session_id: str) -> Tuple[AuryaFunasa, int]:
             sessions[session_id] = (aurya, datetime.utcnow(), reset_count)
             return aurya, reset_count
 
-        aurya = await asyncio.to_thread(create_aurya_funasa, True)
+        aurya = await asyncio.to_thread(create_aurya_agent, True)
         async with sessions_dict_lock:
             sessions[session_id] = (aurya, datetime.utcnow(), 0)
         print(f"[Session] Created: {session_id}")
@@ -171,7 +171,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
 @app.get("/")
 async def root():
-    return {"service": "Aurya FUNASA", "status": "running", "active_sessions": len(sessions)}
+    return {"service": "Aurya", "status": "running", "active_sessions": len(sessions)}
 
 
 @app.get("/health")
@@ -202,14 +202,14 @@ async def feedback(data: FeedbackModel):
 @app.on_event("startup")
 async def startup():
     print("=" * 50)
-    print("AURYA FUNASA — Starting")
+    print("AURYA — Starting")
     print("=" * 50)
     asyncio.create_task(cleanup_sessions())
 
 
 @app.on_event("shutdown")
 async def shutdown():
-    print(f"AURYA FUNASA — Shutdown ({len(sessions)} sessions)")
+    print(f"AURYA — Shutdown ({len(sessions)} sessions)")
 
 
 if __name__ == "__main__":

@@ -11,7 +11,6 @@ phases:
   post_build:
     commands:
       - docker push 248189947068.dkr.ecr.us-east-1.amazonaws.com/aurya-backend-v2:latest
-      - kubectl apply -f k8s/backend-v2.yaml
-      - kubectl apply -f k8s/ingress-v2.yaml
-      - kubectl rollout restart deployment aurya-backend-v2 -n custom
-      - kubectl rollout status deployment aurya-backend-v2 -n custom --timeout=120s
+      - kubectl apply -f k8s/backend.yaml
+      - kubectl rollout restart deployment aurya-backend -n custom
+      - kubectl rollout status deployment aurya-backend -n custom --timeout=120s
