@@ -1,27 +1,30 @@
 """
-Catalogue Client — reads catalogue from Postgres (schema "dataiesb-aurya").
-Caches results in memory with TTL. Falls back to empty if Postgres unreachable.
+Catalogue Client — reads catalogue from Postgres via Trino.
+Caches results in memory with TTL.
 """
 
 import os
 import json
 import time
-import psycopg2
+from trino.dbapi import connect
+from trino.auth import BasicAuthentication
 from typing import Dict, List, Optional
 
-DATABASE_URL = os.getenv("DATABASE_URL")
 CACHE_TTL = int(os.getenv("CATALOGUE_CACHE_TTL", "300"))
-
-_conn = None
 _cache: Dict[str, tuple] = {}
 
 
 def _get_conn():
-    global _conn
-    if _conn is None or _conn.closed:
-        _conn = psycopg2.connect(DATABASE_URL)
-        _conn.autocommit = True
-    return _conn
+    host = os.getenv("TRINO_HOST", "trino.dataiesb.com")
+    port = int(os.getenv("TRINO_PORT", "443"))
+    user = os.getenv("TRINO_USER", "admin")
+    password = os.getenv("TRINO_PASSWORD", "")
+    return connect(
+        host=host, port=port, user=user,
+        auth=BasicAuthentication(user, password),
+        catalog="postgres", schema="dataiesb-aurya",
+        http_scheme="https" if port == 443 else "http",
+    )
 
 
 def _cached(key: str):
@@ -39,24 +42,28 @@ def _query(pk: str, sk_prefix: str = None) -> List[dict]:
         return cached
     try:
         conn = _get_conn()
-        with conn.cursor() as cur:
-            if sk_prefix:
-                cur.execute(
-                    'SELECT pk, sk, data FROM "dataiesb-aurya".catalogue WHERE pk = %s AND sk LIKE %s ORDER BY sk',
-                    (pk, sk_prefix + "%"),
-                )
-            else:
-                cur.execute(
-                    'SELECT pk, sk, data FROM "dataiesb-aurya".catalogue WHERE pk = %s ORDER BY sk',
-                    (pk,),
-                )
-            rows = cur.fetchall()
-        items = [{"PK": r[0], "SK": r[1], **r[2]} for r in rows]
+        cur = conn.cursor()
+        if sk_prefix:
+            cur.execute(
+                "SELECT pk, sk, data FROM catalogue WHERE pk = ? AND sk LIKE ? ORDER BY sk",
+                (pk, sk_prefix + "%"),
+            )
+        else:
+            cur.execute(
+                "SELECT pk, sk, data FROM catalogue WHERE pk = ? ORDER BY sk",
+                (pk,),
+            )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        items = []
+        for r in rows:
+            d = r[2] if isinstance(r[2], dict) else json.loads(r[2])
+            items.append({"PK": r[0], "SK": r[1], **d})
         _cache[cache_key] = (items, time.time())
         return items
     except Exception as e:
         print(f"[Catalogue] Error querying {pk}: {e}")
-        _conn and _conn.close()
         return []
 
 
@@ -65,20 +72,18 @@ def get_schema(layer: str, table_name: str) -> Optional[dict]:
     if not items:
         return None
     item = items[0]
-    if "columns" in item and isinstance(item["columns"], str):
-        item["columns"] = json.loads(item["columns"])
-    if "column_groups" in item and isinstance(item["column_groups"], str):
-        item["column_groups"] = json.loads(item["column_groups"])
+    for k in ("columns", "column_groups"):
+        if k in item and isinstance(item[k], str):
+            item[k] = json.loads(item[k])
     return item
 
 
 def get_all_schemas(layer: str = "gold") -> List[dict]:
     items = _query(f"schema:{layer}")
     for item in items:
-        if "columns" in item and isinstance(item["columns"], str):
-            item["columns"] = json.loads(item["columns"])
-        if "column_groups" in item and isinstance(item["column_groups"], str):
-            item["column_groups"] = json.loads(item["column_groups"])
+        for k in ("columns", "column_groups"):
+            if k in item and isinstance(item[k], str):
+                item[k] = json.loads(item[k])
     return items
 
 
@@ -98,7 +103,6 @@ def get_metadata(table_full_name: str) -> Optional[dict]:
 
 def build_context(category: str, layer: str = "gold") -> str:
     parts = []
-
     schemas = get_all_schemas(layer)
     if schemas:
         parts.append("<available_tables>")
@@ -115,7 +119,6 @@ def build_context(category: str, layer: str = "gold") -> str:
                 for c in s["columns"]:
                     parts.append(f"  {c['name']:30s} {c['type']:12s} {c.get('desc', '')}")
         parts.append("</available_tables>")
-
     rules = get_rules(category)
     if rules:
         parts.append("\n<query_rules>")
@@ -126,7 +129,6 @@ def build_context(category: str, layer: str = "gold") -> str:
         for b in rules.get("best_practices", []):
             parts.append(f"- {b}")
         parts.append("</best_practices>")
-
     examples = get_examples(category)
     if examples:
         parts.append("\n<examples>")
@@ -136,5 +138,4 @@ def build_context(category: str, layer: str = "gold") -> str:
             parts.append(f"<sql>{ex.get('sql', '')}</sql>")
             parts.append("</example>")
         parts.append("</examples>")
-
     return "\n".join(parts)

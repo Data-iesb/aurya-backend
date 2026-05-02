@@ -2,7 +2,7 @@ name: Deploy Backend
 
 on:
   push:
-    branches: [v1]
+    branches: [main]
 
 permissions:
   id-token: write
