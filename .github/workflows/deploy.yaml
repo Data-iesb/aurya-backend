@@ -38,7 +38,7 @@ jobs:
         run: kubectl apply -f k8s/configmap.yaml -f k8s/backend.yaml --validate=false
 
       - name: Use commit image
-        run: kubectl set image deployment/aurya-backend backend=$ECR_REPO:${{ github.sha }} -n custom --validate=false
+        run: kubectl set image deployment/aurya-backend backend=$ECR_REPO:${{ github.sha }} -n custom
 
       - name: Wait for rollout
         run: kubectl rollout status deployment aurya-backend -n custom --timeout=120s
