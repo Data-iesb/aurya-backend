@@ -10,13 +10,16 @@ from typing import Dict, Tuple, Optional
 from collections import defaultdict
 from dotenv import load_dotenv
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from src.core.aurya_funasa import create_aurya_funasa, AuryaFunasa
 
 load_dotenv()
+
+API_KEY = os.getenv("API_KEY")
 
 MAX_CONCURRENT_REQUESTS = int(os.getenv("MAX_CONCURRENT_REQUESTS", "50"))
 REQUEST_TIMEOUT_SECONDS = int(os.getenv("REQUEST_TIMEOUT_SECONDS", "300"))
@@ -32,6 +35,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def check_api_key(request: Request, call_next):
+    if request.url.path in ("/", "/health"):
+        return await call_next(request)
+    key = request.headers.get("x-api-key") or request.query_params.get("api_key")
+    if key != API_KEY:
+        return JSONResponse(status_code=401, content={"error": "Invalid API key"})
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def check_api_key(request: Request, call_next):
+    if request.url.path in ("/", "/health"):
+        return await call_next(request)
+    key = request.headers.get("x-api-key") or request.query_params.get("api_key")
+    if key != API_KEY:
+        return JSONResponse(status_code=401, content={"error": "Invalid API key"})
+    return await call_next(request)
 
 sessions: Dict[str, Tuple[AuryaFunasa, datetime, int]] = {}
 session_locks: Dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
