@@ -56,7 +56,11 @@ class ReActSQLAgent:
 
     @staticmethod
     def _clean_output(text: str) -> str:
-        return re.sub(r'(?:^|\n)\s*Thought:.*?(?=\n(?:##|[A-Z]|\|)|$)', '', text, flags=re.DOTALL | re.IGNORECASE).strip()
+        text = re.sub(r'^Final Answer:\s*', '', text, flags=re.IGNORECASE).strip()
+        text = re.sub(r'Thought:.*?(?=\n(?:#{1,3}\s|[A-Z]|\|)|$)', '', text, flags=re.DOTALL | re.IGNORECASE).strip()
+        text = re.sub(r'Action:.*?(?=\n|$)', '', text, flags=re.IGNORECASE).strip()
+        text = re.sub(r'Action Input:.*?(?=\n|$)', '', text, flags=re.IGNORECASE).strip()
+        return text
 
     async def run(self, question: str, examples: str = "", request_id: str = "", previous_messages: list = None) -> Dict[str, Any]:
         """
