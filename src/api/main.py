@@ -39,17 +39,7 @@ app.add_middleware(
 
 @app.middleware("http")
 async def check_api_key(request: Request, call_next):
-    if request.url.path in ("/", "/health"):
-        return await call_next(request)
-    key = request.headers.get("x-api-key") or request.query_params.get("api_key")
-    if key != API_KEY:
-        return JSONResponse(status_code=401, content={"error": "Invalid API key"})
-    return await call_next(request)
-
-
-@app.middleware("http")
-async def check_api_key(request: Request, call_next):
-    if request.url.path in ("/", "/health"):
+    if request.url.path in ("/", "/health", "/questions"):
         return await call_next(request)
     key = request.headers.get("x-api-key") or request.query_params.get("api_key")
     if key != API_KEY:
@@ -172,6 +162,17 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 @app.get("/")
 async def root():
     return {"service": "Aurya", "status": "running", "active_sessions": len(sessions)}
+
+
+@app.get("/questions")
+async def questions():
+    from src.core.catalogue import get_examples
+    categories = ["saude", "educacao", "seguranca", "demografia"]
+    result = {}
+    for cat in categories:
+        examples = get_examples(cat)
+        result[cat] = [ex.get("question") for ex in examples[:3] if ex.get("question")]
+    return result
 
 
 @app.get("/health")
