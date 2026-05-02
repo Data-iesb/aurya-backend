@@ -38,7 +38,7 @@ class TrinoConnection:
     def get_database(cls) -> SQLDatabase:
         if cls._db is None:
             engine = cls._build_engine()
-            cls._db = SQLDatabase(engine, include_tables=["sus_aih"])
+            cls._db = SQLDatabase(engine)
             print(f"[Trino] SQLDatabase ready — tables: {cls._db.get_usable_table_names()}")
         return cls._db
 
