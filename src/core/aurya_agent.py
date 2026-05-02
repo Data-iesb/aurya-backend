@@ -106,7 +106,7 @@ class AuryaAgent:
         except Exception as e:
             print(f"[Aurya-Router] Error: {e}")
             state["category"] = "greetings"
-            state["output"] = "Olá! Sou uma assistente virtual especializada em dados públicos brasileiros. Como posso ajudar?"
+            state["output"] = "Olá! Sou a Aurya, uma assistente virtual especializada em dados públicos brasileiros. Como posso ajudar?"
             state["timing"]["router"] = time.time() - start
         return state
 
