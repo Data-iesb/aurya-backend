@@ -29,8 +29,8 @@ DEFAULTS = {
         "primary": "gemini-2.0-flash",
     },
     "bedrock": {
-        "fast": "us.anthropic.claude-3-5-haiku-20241022-v1:0",
-        "primary": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "fast": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "primary": "us.anthropic.claude-sonnet-4-20250514-v1:0",
     },
 }
 
