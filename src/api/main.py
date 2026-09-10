@@ -183,24 +183,88 @@ class TTSRequest(BaseModel):
 
 
 def _clean_text_for_tts(text: str) -> str:
-    """Remove tabelas e marcações markdown para o áudio ler somente o texto corrido."""
+    """Converte tabelas em frases naturais e remove marcações para a leitura em áudio."""
     import re
 
-    lines = []
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line:
-            lines.append('')
-            continue
-        # Linha de tabela em texto simples ("a | b | c") ou markdown ("| a | b |")
-        if line.count('|') >= 2:
-            continue
-        # Linha separadora (----, | --- |, :---:)
-        if re.fullmatch(r'[-|:\s]+', line):
-            continue
-        lines.append(line)
+    def split_cells(line: str):
+        return [cell.strip() for cell in line.strip().strip('|').split('|')]
 
-    clean = '\n'.join(lines)
+    def is_table_line(line: str) -> bool:
+        return line.count('|') >= 2 or (line.startswith('|') and line.endswith('|'))
+
+    def is_separator(cells) -> bool:
+        filled = [cell for cell in cells if cell]
+        return bool(filled) and all(re.fullmatch(r':?-{2,}:?', cell) for cell in filled)
+
+    def speech_value(cell: str) -> str:
+        cell = cell.strip()
+        if not cell:
+            return ''
+        if 'R$' in cell:
+            return f"{cell.replace('R$', '').strip()} reais"
+        return cell
+
+    def speech_label(cell: str) -> str:
+        return cell.replace('(R$)', 'em reais').replace('R$', 'reais').strip()
+
+    output: list[str] = []
+    lines = text.splitlines()
+    index = 0
+
+    while index < len(lines):
+        line = lines[index].strip()
+
+        if not is_table_line(line):
+            if re.fullmatch(r'[-:\s|]+', line):
+                index += 1
+                continue
+            if line:
+                output.append(line)
+            else:
+                output.append('')
+            index += 1
+            continue
+
+        block: list[list[str]] = []
+        while index < len(lines) and is_table_line(lines[index].strip()):
+            block.append(split_cells(lines[index]))
+            index += 1
+
+        header = None
+        rows = block
+        if len(block) > 1:
+            if is_separator(block[1]):
+                header = block[0]
+                rows = block[2:]
+            else:
+                header = block[0]
+                rows = block[1:]
+        elif block:
+            rows = [block[0]]
+
+        if header:
+            for row in rows:
+                if is_separator(row):
+                    continue
+                parts = []
+                for cell_index, cell in enumerate(row):
+                    value = speech_value(cell)
+                    if not value:
+                        continue
+                    label = header[cell_index] if cell_index < len(header) else ''
+                    label = speech_label(label)
+                    parts.append(f"{label}: {value}" if label else value)
+                if parts:
+                    output.append('. '.join(parts) + '.')
+        else:
+            for row in rows:
+                if is_separator(row):
+                    continue
+                values = [speech_value(cell) for cell in row if cell.strip()]
+                if values:
+                    output.append(', '.join(values) + '.')
+
+    clean = '\n'.join(output)
     clean = re.sub(r'`[^`]+`', '', clean)
     clean = re.sub(r'\*\*|__|[*#]', '', clean)
     clean = re.sub(r'^\s*[-•]\s+', '', clean, flags=re.MULTILINE)
