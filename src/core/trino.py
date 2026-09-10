@@ -11,6 +11,10 @@ from src.core.sql_database_wrapper import SQLDatabaseWrapper
 # Temas que usam o catálogo postgres (não o seaweedfs)
 POSTGRES_TEMAS = {"pos_graduacao"}
 
+# Credenciais padrão do catálogo postgres (mesmo acesso do gen-ai-funasa)
+POSTGRES_DEFAULT_USER = "admin"
+POSTGRES_DEFAULT_PASSWORD = "JGtHJlSQV5TqDh8jJJ1U0u6WyaSUxeLW"
+
 
 class TrinoConnection:
     _engines: dict = {}
@@ -43,8 +47,8 @@ class TrinoConnection:
             return (
                 os.getenv("POSTGRES_TRINO_CATALOG", "postgres"),
                 os.getenv("POSTGRES_TRINO_SCHEMA", "public"),
-                os.getenv("POSTGRES_TRINO_USER", ""),
-                os.getenv("POSTGRES_TRINO_PASSWORD", ""),
+                os.getenv("POSTGRES_TRINO_USER", POSTGRES_DEFAULT_USER),
+                os.getenv("POSTGRES_TRINO_PASSWORD", POSTGRES_DEFAULT_PASSWORD),
             )
         return (
             os.getenv("TRINO_CATALOG", "seaweedfs"),
