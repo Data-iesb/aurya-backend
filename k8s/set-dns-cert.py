@@ -15,7 +15,7 @@ r53 = boto3.client("route53")
 resp = r53.change_resource_record_sets(
     HostedZoneId=HOSTED_ZONE_ID,
     ChangeBatch={
-        "Comment": "Aurya API backend",
+        "Comment": "Atena API backend",
         "Changes": [{
             "Action": "UPSERT",
             "ResourceRecordSet": {

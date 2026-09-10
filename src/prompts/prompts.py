@@ -1,5 +1,5 @@
 """
-Prompts for Aurya — multi-domain Brazilian public data.
+Prompts for Atena — multi-domain Brazilian public data.
 """
 
 from src.prompts.router_prompts import prompt_router as ROUTER_PROMPT, CATEGORY_MAP

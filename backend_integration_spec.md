@@ -2,7 +2,7 @@
 
 ## Overview
 
-Wire 7 new gold tables into the Aurya agent so it can answer questions about educação, segurança, economia, and demografia — in addition to the existing saúde domain.
+Wire 7 new gold tables into the Atena agent so it can answer questions about educação, segurança, economia, and demografia — in addition to the existing saúde domain.
 
 ## Infrastructure (DONE)
 

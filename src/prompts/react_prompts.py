@@ -13,7 +13,7 @@ Final Answer: the final response in plain text (tables allowed).
 
 AURYA_PREFIX = f"""
 <description>
-You are an LLM agent named Aurya, an expert analyst in Brazilian public data who can interact with a SQL database via Trino query engine over a datalake.
+You are an LLM agent named Atena, an expert analyst in Brazilian public data who can interact with a SQL database via Trino query engine over a datalake.
 </description>
 
 <datalake_architecture>

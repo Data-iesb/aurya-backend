@@ -1,5 +1,5 @@
 """
-Aurya Agent — agente de consulta aos dados do SUS via Trino.
+Atena Agent — agente de consulta aos dados do SUS via Trino.
 """
 
 import time
@@ -34,14 +34,14 @@ class AgentState(TypedDict):
 
 
 class AuryaAgent:
-    """Aurya agent — consultas aos dados do SUS."""
+    """Atena agent — consultas aos dados do SUS."""
 
     def __init__(self, verbose: bool = False):
         self.verbose = verbose
         self._response_cache: Dict[str, Dict] = {}
         self._cache_max = 200
 
-        print("🚀 [Aurya] Inicializando...")
+        print("🚀 [Atena] Inicializando...")
 
         self.db_engine = TrinoConnection.get_engine()
         self.llm_fast = get_llm(role="fast", temperature=0.0, max_tokens=2048)
@@ -64,7 +64,7 @@ class AuryaAgent:
 
         self.checkpointer = MemorySaver()
         self.graph = self._build_graph()
-        print("✅ [Aurya] Pronta!")
+        print("✅ [Atena] Pronta!")
 
     def _build_graph(self) -> StateGraph:
         workflow = StateGraph(AgentState)
@@ -112,9 +112,9 @@ class AuryaAgent:
             if state["category"] == "greetings":
                 state["output"] = raw.get("output")
         except Exception as e:
-            print(f"[Aurya-Router] Error: {e}")
+            print(f"[Atena-Router] Error: {e}")
             state["category"] = "greetings"
-            state["output"] = "Olá! Sou a Aurya, assistente de inteligência artificial especializada em dados públicos brasileiros. Como posso ajudar?"
+            state["output"] = "Olá! Sou a Atena, assistente de inteligência artificial especializada em dados públicos brasileiros. Como posso ajudar?"
             state["timing"]["router"] = time.time() - start
         return state
 
@@ -136,7 +136,7 @@ class AuryaAgent:
             state["timing"]["sql_agent"] = time.time() - start
             state["token_usage"]["sql_agent"] = result.get("token_usage", {})
         except Exception as e:
-            print(f"[Aurya-SQL] Error: {e}")
+            print(f"[Atena-SQL] Error: {e}")
             state["output"] = "Desculpe, encontrei um erro ao processar sua pergunta."
             state["timing"]["sql_agent"] = time.time() - start
         return state
@@ -210,7 +210,7 @@ Final Answer: the final response in plain text (tables allowed)."""
         if previous_messages:
             conversation_context = "\n<conversation_history>\n"
             for msg in previous_messages[-6:]:
-                role = "Usuário" if msg.__class__.__name__ == "HumanMessage" else "Aurya"
+                role = "Usuário" if msg.__class__.__name__ == "HumanMessage" else "Atena"
                 conversation_context += f"{role}: {msg.content}\n\n"
             conversation_context += "</conversation_history>\n"
 

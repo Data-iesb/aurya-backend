@@ -1,4 +1,4 @@
-# Aurya — Agente de Dados do SUS (FUNASA)
+# Atena — Agente de Dados do SUS (FUNASA)
 
 Agente conversacional que responde perguntas sobre dados públicos de saúde do SUS usando linguagem natural. Converte perguntas em SQL, executa no datalake via Trino e retorna respostas formatadas.
 
@@ -14,7 +14,7 @@ Usuário (WebSocket)
 │  ├── Sessions + concurrency control         │
 │  └── API Key auth (x-api-key header)        │
 ├─────────────────────────────────────────────┤
-│  Aurya FUNASA (aurya_funasa.py)             │
+│  Atena Agent (aurya_agent.py)             │
 │  ├── Router Node    → classifica a pergunta │
 │  ├── SQL Agent Node → gera e executa SQL    │
 │  └── Format Node    → formata resposta      │
@@ -142,7 +142,7 @@ TRINO_PASSWORD=***
 TRINO_CATALOG=seaweedfs
 TRINO_SCHEMA=gold
 
-# Trino (catálogo postgres — Aurya Pós-Graduação / CAPES)
+# Trino (catálogo postgres — Atena Pós-Graduação / CAPES)
 POSTGRES_TRINO_CATALOG=postgres
 POSTGRES_TRINO_SCHEMA=public
 POSTGRES_TRINO_USER=admin
@@ -189,7 +189,7 @@ kubectl apply -f k8s/backend.yaml     # Deployment + Service
 O `aurya-secret` no namespace `custom` contém:
 - `TRINO_PASSWORD` — senha do Trino (catálogo seaweedfs)
 - `TRINO_USER` — usuário do Trino
-- `POSTGRES_TRINO_PASSWORD` — senha do catálogo postgres (Aurya Pós-Graduação)
+- `POSTGRES_TRINO_PASSWORD` — senha do catálogo postgres (Atena Pós-Graduação)
 - `API_KEY` — chave de acesso da API
 - `DATABASE_URL` — conexão Postgres (catálogo)
 

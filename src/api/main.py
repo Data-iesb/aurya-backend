@@ -1,5 +1,5 @@
 """
-Aurya Backend
+Atena Backend
 """
 
 import os
@@ -26,7 +26,7 @@ REQUEST_TIMEOUT_SECONDS = int(os.getenv("REQUEST_TIMEOUT_SECONDS", "300"))
 SESSION_TIMEOUT_MINUTES = 20
 CLEANUP_INTERVAL_SECONDS = 300
 
-app = FastAPI(title="Aurya API", version="1.0.0")
+app = FastAPI(title="Atena API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -162,7 +162,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
 @app.get("/")
 async def root():
-    return {"service": "Aurya", "status": "running", "active_sessions": len(sessions)}
+    return {"service": "Atena", "status": "running", "active_sessions": len(sessions)}
 
 
 @app.get("/questions")
@@ -228,14 +228,14 @@ async def feedback(data: FeedbackModel):
 @app.on_event("startup")
 async def startup():
     print("=" * 50)
-    print("AURYA — Starting")
+    print("ATENA — Starting")
     print("=" * 50)
     asyncio.create_task(cleanup_sessions())
 
 
 @app.on_event("shutdown")
 async def shutdown():
-    print(f"AURYA — Shutdown ({len(sessions)} sessions)")
+    print(f"ATENA — Shutdown ({len(sessions)} sessions)")
 
 
 if __name__ == "__main__":

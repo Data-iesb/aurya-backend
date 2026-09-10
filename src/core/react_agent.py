@@ -221,7 +221,7 @@ class ReActSQLAgent:
         if previous_messages and len(previous_messages) > 0:
             conversation_context = "\n<conversation_history>\nHistórico da conversa anterior:\n\n"
             for i, msg in enumerate(previous_messages[-6:]):  # Últimas 3 interações (6 mensagens)
-                role = "Usuário" if msg.__class__.__name__ == "HumanMessage" else "Aurya"
+                role = "Usuário" if msg.__class__.__name__ == "HumanMessage" else "Atena"
                 conversation_context += f"{role}: {msg.content}\n\n"
             conversation_context += "</conversation_history>\n"
 

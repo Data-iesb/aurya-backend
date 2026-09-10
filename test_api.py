@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test Aurya API endpoints + WebSocket with a real SUS question."""
+"""Test Atena API endpoints + WebSocket with a real SUS question."""
 
 import asyncio
 import json

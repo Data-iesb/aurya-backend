@@ -1,5 +1,5 @@
 """
-Exemplo de uso da API Aurya FUNASA
+Exemplo de uso da API Atena
 ===================================
 Consulta dados do SUS via WebSocket.
 
