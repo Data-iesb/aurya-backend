@@ -142,6 +142,12 @@ TRINO_PASSWORD=***
 TRINO_CATALOG=seaweedfs
 TRINO_SCHEMA=gold
 
+# Trino (catálogo postgres — Aurya Pós-Graduação / CAPES)
+POSTGRES_TRINO_CATALOG=postgres
+POSTGRES_TRINO_SCHEMA=public
+POSTGRES_TRINO_USER=admin
+POSTGRES_TRINO_PASSWORD=***   # credencial do catálogo postgres (k8s secret: aurya-secret)
+
 # Auth
 API_KEY=***
 
@@ -181,8 +187,9 @@ kubectl apply -f k8s/backend.yaml     # Deployment + Service
 ### Secrets
 
 O `aurya-secret` no namespace `custom` contém:
-- `TRINO_PASSWORD` — senha do Trino
+- `TRINO_PASSWORD` — senha do Trino (catálogo seaweedfs)
 - `TRINO_USER` — usuário do Trino
+- `POSTGRES_TRINO_PASSWORD` — senha do catálogo postgres (Aurya Pós-Graduação)
 - `API_KEY` — chave de acesso da API
 - `DATABASE_URL` — conexão Postgres (catálogo)
 

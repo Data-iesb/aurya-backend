@@ -24,6 +24,7 @@ from src.core.token_callback import TokenUsageCallback
 
 class AgentState(TypedDict):
     input: str
+    agent: Optional[str]
     category: Optional[str]
     messages: Annotated[List, add_messages]
     sql_query: Optional[str]
@@ -85,6 +86,12 @@ class AuryaAgent:
         start = time.time()
         token_cb = TokenUsageCallback()
         try:
+            fixed_agent = state.get("agent")
+            if fixed_agent and fixed_agent in TEMA_PREFIX:
+                state["category"] = fixed_agent
+                state["timing"]["router"] = time.time() - start
+                return state
+
             router_input = state["input"]
             if len(state.get("messages", [])) > 1:
                 prev = state["messages"][:-1]
@@ -107,7 +114,7 @@ class AuryaAgent:
         except Exception as e:
             print(f"[Aurya-Router] Error: {e}")
             state["category"] = "greetings"
-            state["output"] = "Olá! Sou a Aurya SUS, assistente de inteligência artificial especializada nos dados do SUS. Como posso ajudar?"
+            state["output"] = "Olá! Sou a Aurya, assistente de inteligência artificial especializada em dados públicos brasileiros. Como posso ajudar?"
             state["timing"]["router"] = time.time() - start
         return state
 
@@ -117,7 +124,7 @@ class AuryaAgent:
             tema = state.get("category", "saude")
             prev = state["messages"][:-1] if len(state["messages"]) > 1 else []
 
-            db_wrapper = TrinoConnection.get_database()
+            db_wrapper = TrinoConnection.get_database(tema)
             self.sql_agent.set_tema(tema, db_wrapper)
 
             result = await self.sql_agent.run(
@@ -139,17 +146,17 @@ class AuryaAgent:
             state["messages"].append(AIMessage(content=state["output"]))
         return state
 
-    async def ainvoke(self, user_input: str, request_id: str = "", thread_id: str = "default") -> Dict[str, Any]:
+    async def ainvoke(self, user_input: str, request_id: str = "", thread_id: str = "default", agent: Optional[str] = None) -> Dict[str, Any]:
         start = time.time()
 
-        cache_key = hashlib.md5(user_input.strip().lower().encode()).hexdigest()
+        cache_key = hashlib.md5(f"{agent or ''}:{user_input.strip().lower()}".encode()).hexdigest()
         if cache_key in self._response_cache:
             cached = self._response_cache[cache_key]
             cached["timing"] = {"total": 0.0, "cache": "hit"}
             return cached
 
         initial: AgentState = {
-            "input": user_input, "category": None,
+            "input": user_input, "agent": agent, "category": None,
             "messages": [HumanMessage(content=user_input)],
             "sql_query": None, "output": None,
             "timing": {}, "token_usage": {},

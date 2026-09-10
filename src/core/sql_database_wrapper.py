@@ -4,14 +4,19 @@ from sqlalchemy import text
 
 class SQLDatabaseWrapper:
 
-    def __init__(self, engine, schema: str = "gold", tema: str = "sus"):
+    def __init__(self, engine, schema: str = "gold", tema: str = "sus", catalog: str = "seaweedfs"):
         self.engine = engine
         self.schema = schema
         self.tema = tema
+        self.catalog = catalog
 
         # Map temas to their tables
         tema_tables = {
-            "sus": ["sus_aih"],
+            "saude": ["sus_aih"],
+            "educacao": ["educacao_basica", "educacao_superior", "enem_2024"],
+            "seguranca": ["acidentes_transito", "ocorrencias_criminais"],
+            "demografia": ["demografia_municipios"],
+            "pos_graduacao": ["capes_sucupira_programas_pos"],
         }
 
         self.table_names = tema_tables.get(tema, ["sus_aih"])

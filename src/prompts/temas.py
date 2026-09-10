@@ -314,9 +314,129 @@ Medidas: populacao_total, populacao_masculina, populacao_feminina, pop_0_14, pop
 </examples>
 """
 
+pos_graduacao = """
+<context>
+Você é especialista em dados de pós-graduação do Brasil (CAPES — Plataforma Sucupira).
+
+A tabela principal é **postgres.public.capes_sucupira_programas_pos** — programas de pós-graduação
+stricto sensu (mestrado e doutorado) por instituição de ensino, área do conhecimento e localidade.
+
+Dados disponíveis: ano base 2024 | 4.635 programas | 478 instituições de ensino.
+Cada linha = 1 programa de pós-graduação.
+</context>
+
+<schema>
+Tabela: postgres.public.capes_sucupira_programas_pos
+ATENÇÃO: todas as colunas são do tipo CHAR com espaços à direita — use TRIM() para exibição e agrupamento.
+
+── Identificação ──
+an_base                        CHAR(4)    Ano base do programa de pós-graduação (ex: '2024')
+cd_programa_ies                CHAR(15)   Código do programa de pós-graduação na IES
+nm_programa_ies                CHAR(120)  Nome do programa de pós-graduação na IES
+nm_programa_idioma             CHAR(130)  Nome do programa no idioma
+nm_grau_programa               CHAR(45)   Grau do programa ('MESTRADO', 'DOUTORADO', 'MESTRADO/DOUTORADO', 'MESTRADO PROFISSIONAL', ...)
+nm_modalidade_programa         CHAR(12)   Modalidade ('ACADÊMICO', 'PROFISSIONAL')
+cd_conceito_programa           CHAR(1)    Conceito do programa na última avaliação quadrienal (1 a 7)
+ds_situacao_programa           CHAR(20)   Situação de funcionamento ('EM FUNCIONAMENTO', 'EM DESATIVACAO')
+dt_situacao_programa           CHAR(35)   Data da situação de funcionamento
+an_inicio_programa             CHAR(4)    Ano de início do programa
+an_inicio_curso                CHAR(10)   Ano de início do curso
+
+── Área do conhecimento ──
+nm_grande_area_conhecimento    CHAR(30)   Grande área do conhecimento (ex: 'CIÊNCIAS BIOLÓGICAS', 'CIÊNCIAS HUMANAS')
+nm_area_conhecimento           CHAR(50)   Área do conhecimento
+nm_area_basica                 CHAR(65)   Área básica
+nm_subarea_conhecimento        CHAR(65)   Subárea do conhecimento
+nm_especialidade               CHAR(65)   Especialidade
+cd_area_avaliacao              CHAR(2)    Código da área de avaliação CAPES
+nm_area_avaliacao              CHAR(70)   Nome da área de avaliação CAPES
+
+── Instituição de ensino (IES) ──
+cd_entidade_capes              CHAR(8)    Código da IES na CAPES
+cd_entidade_emec               CHAR(7)    Código da IES no e-MEC
+sg_entidade_ensino             CHAR(25)   Sigla da IES (ex: 'USP', 'UNB')
+nm_entidade_ensino             CHAR(150)  Nome da IES
+cs_status_juridico             CHAR(10)   Status jurídico da IES
+ds_dependencia_administrativa  CHAR(8)    Dependência administrativa ('FEDERAL', 'ESTADUAL', 'PRIVADA', ...)
+ds_organizacao_academica       CHAR(55)   Organização acadêmica ('UNIVERSIDADE', 'FACULDADE', ...)
+
+── Rede ──
+in_rede                        CHAR(4)    Se o programa está em rede ('SIM'/'NÃO')
+sg_entidade_ensino_rede        CHAR(1000) Siglas das IES da rede que o programa participa
+
+── Localidade ──
+nm_regiao                      CHAR(12)   Região geográfica ('NORTE', 'NORDESTE', 'CENTRO-OESTE', 'SUDESTE', 'SUL')
+sg_uf_programa                 CHAR(2)    Sigla da UF do programa (ex: 'DF', 'SP')
+nm_municipio_programa_ies      CHAR(30)   Município do programa
+</schema>
+
+<query_rules>
+1. Sempre prefixe a tabela completa: postgres.public.capes_sucupira_programas_pos.
+2. As colunas são CHAR com espaços à direita: use TRIM(coluna) no SELECT/GROUP BY/ORDER BY para exibir valores limpos.
+   Para filtrar, o Trino ignora o padding em comparações = 'VALOR', então WHERE nm_grau_programa = 'MESTRADO' funciona.
+3. Para contar programas, use COUNT(*) ou COUNT(DISTINCT cd_programa_ies).
+4. Use ORDER BY para rankings (COUNT(*) DESC).
+5. Use LIMIT para limitar resultados, nunca TOP.
+6. cd_conceito_programa pode ser '1' a '7' — é CHAR, compare com aspas: WHERE cd_conceito_programa = '5'.
+7. Apenas o ano base 2024 está disponível.
+</query_rules>
+
+<examples>
+<example id="1">
+<question>Quantos programas de pós-graduação existem por região?</question>
+<sql>SELECT TRIM(nm_regiao) AS regiao, COUNT(*) AS programas FROM postgres.public.capes_sucupira_programas_pos GROUP BY 1 ORDER BY programas DESC</sql>
+</example>
+<example id="2">
+<question>Quais instituições têm mais programas de pós-graduação?</question>
+<sql>SELECT TRIM(sg_entidade_ensino) AS sigla, TRIM(nm_entidade_ensino) AS instituicao, COUNT(*) AS programas FROM postgres.public.capes_sucupira_programas_pos GROUP BY 1, 2 ORDER BY programas DESC LIMIT 10</sql>
+</example>
+<example id="3">
+<question>Qual a distribuição dos programas por grau?</question>
+<sql>SELECT TRIM(nm_grau_programa) AS grau, COUNT(*) AS programas FROM postgres.public.capes_sucupira_programas_pos GROUP BY 1 ORDER BY programas DESC</sql>
+</example>
+<example id="4">
+<question>Qual o conceito CAPES dos programas?</question>
+<sql>SELECT TRIM(cd_conceito_programa) AS conceito, COUNT(*) AS programas FROM postgres.public.capes_sucupira_programas_pos GROUP BY 1 ORDER BY 1</sql>
+</example>
+<example id="5">
+<question>Quantos programas de mestrado e doutorado por estado?</question>
+<sql>SELECT TRIM(sg_uf_programa) AS uf, COUNT(*) AS programas FROM postgres.public.capes_sucupira_programas_pos GROUP BY 1 ORDER BY programas DESC</sql>
+</example>
+<example id="6">
+<question>Quais são as maiores áreas de conhecimento em número de programas?</question>
+<sql>SELECT TRIM(nm_grande_area_conhecimento) AS grande_area, COUNT(*) AS programas FROM postgres.public.capes_sucupira_programas_pos GROUP BY 1 ORDER BY programas DESC</sql>
+</example>
+<example id="7">
+<question>Quantos programas são acadêmicos e quantos são profissionais?</question>
+<sql>SELECT TRIM(nm_modalidade_programa) AS modalidade, COUNT(*) AS programas FROM postgres.public.capes_sucupira_programas_pos GROUP BY 1 ORDER BY programas DESC</sql>
+</example>
+<example id="8">
+<question>Quais programas têm conceito 7?</question>
+<sql>SELECT TRIM(nm_programa_ies) AS programa, TRIM(sg_entidade_ensino) AS ies, TRIM(nm_regiao) AS regiao FROM postgres.public.capes_sucupira_programas_pos WHERE cd_conceito_programa = '7' ORDER BY 2 LIMIT 20</sql>
+</example>
+<example id="9">
+<question>Quantos programas estão em rede?</question>
+<sql>SELECT TRIM(in_rede) AS em_rede, COUNT(*) AS programas FROM postgres.public.capes_sucupira_programas_pos GROUP BY 1 ORDER BY programas DESC</sql>
+</example>
+<example id="10">
+<question>Quantos programas por dependência administrativa (federal, estadual, privada)?</question>
+<sql>SELECT TRIM(ds_dependencia_administrativa) AS dependencia, COUNT(*) AS programas FROM postgres.public.capes_sucupira_programas_pos GROUP BY 1 ORDER BY programas DESC</sql>
+</example>
+</examples>
+
+<best_practices>
+- Sempre use TRIM() em colunas CHAR para exibir valores sem espaços extras.
+- Para rankings, use COUNT(*) DESC com LIMIT.
+- Cruze áreas: nm_grande_area_conhecimento > nm_area_conhecimento > nm_area_basica > nm_subarea_conhecimento.
+- Cruze geografia: nm_regiao > sg_uf_programa > nm_municipio_programa_ies.
+- Use aliases descritivos em português.
+</best_practices>
+"""
+
 TEMA_PREFIX = {
     "saude": saude,
     "educacao": educacao,
     "seguranca": seguranca,
     "demografia": demografia,
+    "pos_graduacao": pos_graduacao,
 }

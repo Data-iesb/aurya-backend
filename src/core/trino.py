@@ -1,5 +1,5 @@
 """
-Trino Connection — gold schema.
+Trino Connection — conexões por catálogo.
 """
 
 import os
@@ -8,22 +8,22 @@ from sqlalchemy.pool import StaticPool
 
 from src.core.sql_database_wrapper import SQLDatabaseWrapper
 
+# Temas que usam o catálogo postgres (não o seaweedfs)
+POSTGRES_TEMAS = {"pos_graduacao"}
+
 
 class TrinoConnection:
-    _engine = None
-    _db = None
+    _engines: dict = {}
+    _dbs: dict = {}
 
     @classmethod
-    def _build_engine(cls):
-        if cls._engine is not None:
-            return cls._engine
+    def _build_engine(cls, catalog: str, schema: str, user: str, password: str):
+        key = (catalog, schema)
+        if key in cls._engines:
+            return cls._engines[key]
 
         host = os.getenv("TRINO_HOST", "trino.dataiesb.com")
         port = os.getenv("TRINO_PORT", "443")
-        user = os.getenv("TRINO_USER", "funasa_reader")
-        password = os.getenv("TRINO_PASSWORD", "")
-        catalog = os.getenv("TRINO_CATALOG", "seaweedfs")
-        schema = os.getenv("TRINO_SCHEMA", "gold")
         scheme = os.getenv("TRINO_HTTP_SCHEME", "https")
 
         url = f"trino://{user}:{password}@{host}:{port}/{catalog}/{schema}"
@@ -33,27 +33,44 @@ class TrinoConnection:
             "verify": False,  # Certificado autoassinado do Trino
         }
 
-        print(f"[Trino] Engine → {host}:{port}/{catalog}/{schema}")
-        cls._engine = create_engine(url, connect_args=connect_args, poolclass=StaticPool)
-        return cls._engine
+        print(f"[Trino] Engine → {host}:{port}/{catalog}/{schema} ({user})")
+        cls._engines[key] = create_engine(url, connect_args=connect_args, poolclass=StaticPool)
+        return cls._engines[key]
 
     @classmethod
-    def get_engine(cls):
-        return cls._build_engine()
+    def _settings(cls, tema: str):
+        if tema in POSTGRES_TEMAS:
+            return (
+                os.getenv("POSTGRES_TRINO_CATALOG", "postgres"),
+                os.getenv("POSTGRES_TRINO_SCHEMA", "public"),
+                os.getenv("POSTGRES_TRINO_USER", ""),
+                os.getenv("POSTGRES_TRINO_PASSWORD", ""),
+            )
+        return (
+            os.getenv("TRINO_CATALOG", "seaweedfs"),
+            os.getenv("TRINO_SCHEMA", "gold"),
+            os.getenv("TRINO_USER", "funasa_reader"),
+            os.getenv("TRINO_PASSWORD", ""),
+        )
 
     @classmethod
-    def get_database(cls) -> SQLDatabaseWrapper:
-        if cls._db is None:
-            engine = cls._build_engine()
-            schema = os.getenv("TRINO_SCHEMA", "gold")
-            cls._db = SQLDatabaseWrapper(engine, schema=schema)
-            print(f"[Trino] SQLDatabase ready — tables: {cls._db.get_usable_table_names()}")
-        return cls._db
+    def get_engine(cls, tema: str = "sus"):
+        catalog, schema, user, password = cls._settings(tema)
+        return cls._build_engine(catalog, schema, user, password)
+
+    @classmethod
+    def get_database(cls, tema: str = "sus") -> SQLDatabaseWrapper:
+        if tema not in cls._dbs:
+            engine = cls.get_engine(tema)
+            catalog, schema, _, _ = cls._settings(tema)
+            cls._dbs[tema] = SQLDatabaseWrapper(engine, schema=schema, tema=tema, catalog=catalog)
+            print(f"[Trino] SQLDatabase ready ({tema}) — tables: {cls._dbs[tema].get_usable_table_names()}")
+        return cls._dbs[tema]
 
     @classmethod
     def clear_pool(cls):
-        if cls._engine is not None:
-            cls._engine.dispose()
-            cls._engine = None
-            cls._db = None
-            print("[Trino] Disposed")
+        for engine in cls._engines.values():
+            engine.dispose()
+        cls._engines = {}
+        cls._dbs = {}
+        print("[Trino] Disposed")

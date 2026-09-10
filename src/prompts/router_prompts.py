@@ -1,4 +1,4 @@
-from src.prompts.temas import saude, educacao, seguranca, demografia
+from src.prompts.temas import saude, educacao, seguranca, demografia, pos_graduacao
 
 prompt_router = """
 <description>
@@ -12,6 +12,7 @@ Classify the input text into one of these categories:
 3. 'educacao' - For questions about education (schools, enrollment, ENEM, higher education, teachers, universities, courses)
 4. 'seguranca' - For questions about public safety (traffic accidents, criminal occurrences, violence, homicides, robberies)
 5. 'demografia' - For questions about demographics (population, census, age distribution, gender ratio, municipalities)
+6. 'pos_graduacao' - For questions about graduate programs (pós-graduação, mestrado, doutorado, CAPES, Sucupira, programas, conceito CAPES, área de avaliação)
 
 IMPORTANT CONTEXT RULES:
 1. If the input contains conversation context (previous messages), use that context to understand the current question.
@@ -42,6 +43,7 @@ The output will be returned formatted in markdown and in the language in which t
    {{"category": "educacao"}}
    {{"category": "seguranca"}}
    {{"category": "demografia"}}
+   {{"category": "pos_graduacao"}}
 </output_format>
 """
 
@@ -50,6 +52,7 @@ CATEGORY_MAP = {
     "educacao": educacao,
     "seguranca": seguranca,
     "demografia": demografia,
+    "pos_graduacao": pos_graduacao,
 }
 
 def get_example(example_output: dict) -> str:
