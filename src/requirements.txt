@@ -19,9 +19,12 @@ trino[sqlalchemy]
 fastapi
 uvicorn
 websockets
+python-multipart
 
 # Utilities
 python-dotenv
+httpx
+boto3
 
 # Other
 psycopg2-binary>=2.9.9

@@ -4,18 +4,20 @@ Atena Backend
 
 import os
 import asyncio
+import base64
 import uuid
 from datetime import datetime, timedelta
 from typing import Dict, Tuple, Optional
 from collections import defaultdict
 from dotenv import load_dotenv
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from src.core.aurya_agent import create_aurya_agent, AuryaAgent
+from src.core.transcription import transcrever_audio, FORMATOS_SUPORTADOS
 
 load_dotenv()
 
@@ -39,7 +41,7 @@ app.add_middleware(
 
 @app.middleware("http")
 async def check_api_key(request: Request, call_next):
-    if request.url.path in ("/", "/health", "/questions", "/tts"):
+    if request.url.path in ("/", "/health", "/questions", "/tts") or request.url.path.startswith("/transcribe"):
         return await call_next(request)
     key = request.headers.get("x-api-key") or request.query_params.get("api_key")
     if key != API_KEY:
@@ -203,6 +205,61 @@ async def tts(req: TTSRequest):
 @app.get("/health")
 async def health():
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat(), "active_sessions": len(sessions)}
+
+
+class TranscribeJsonRequest(BaseModel):
+    audio: str  # base64
+    formato: Optional[str] = None
+
+
+@app.post("/transcribe/upload")
+async def transcribe_upload(file: UploadFile = File(...)):
+    """
+    Transcreve um arquivo de áudio enviado via multipart/form-data.
+    Formatos aceitos: mp3, wav, ogg, flac, webm.
+    """
+    if not file.filename:
+        return JSONResponse(status_code=400, content={"sucesso": False, "erro": "Nenhum arquivo enviado."})
+
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    if ext not in FORMATOS_SUPORTADOS:
+        return JSONResponse(
+            status_code=400,
+            content={"sucesso": False, "erro": f"Formato não suportado. Use: {', '.join(sorted(FORMATOS_SUPORTADOS))}"},
+        )
+
+    try:
+        audio_bytes = await file.read()
+        resultado = await transcrever_audio(audio_bytes, file.filename)
+        return resultado
+    except Exception as e:
+        print(f"[API /transcribe/upload] Erro: {e}")
+        return JSONResponse(status_code=500, content={"sucesso": False, "erro": f"Erro interno: {str(e)}"})
+
+
+@app.post("/transcribe")
+async def transcribe_base64(request: TranscribeJsonRequest):
+    """
+    Transcreve áudio enviado como base64 no corpo JSON.
+    """
+    try:
+        audio_bytes = base64.b64decode(request.audio)
+    except Exception:
+        return JSONResponse(status_code=400, content={"sucesso": False, "erro": "Campo 'audio' não é um base64 válido."})
+
+    fmt = request.formato or "mp3"
+    if fmt not in FORMATOS_SUPORTADOS:
+        return JSONResponse(
+            status_code=400,
+            content={"sucesso": False, "erro": f"Formato não suportado. Use: {', '.join(sorted(FORMATOS_SUPORTADOS))}"},
+        )
+
+    try:
+        resultado = await transcrever_audio(audio_bytes, f"audio.{fmt}", formato=fmt)
+        return resultado
+    except Exception as e:
+        print(f"[API /transcribe] Erro: {e}")
+        return JSONResponse(status_code=500, content={"sucesso": False, "erro": f"Erro interno: {str(e)}"})
 
 
 @app.post("/reset_history/")
