@@ -182,15 +182,36 @@ class TTSRequest(BaseModel):
     text: str
 
 
+def _clean_text_for_tts(text: str) -> str:
+    """Remove tabelas e marcações markdown para o áudio ler somente o texto corrido."""
+    import re
+
+    lines = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            lines.append('')
+            continue
+        # Linha de tabela em texto simples ("a | b | c") ou markdown ("| a | b |")
+        if line.count('|') >= 2:
+            continue
+        # Linha separadora (----, | --- |, :---:)
+        if re.fullmatch(r'[-|:\s]+', line):
+            continue
+        lines.append(line)
+
+    clean = '\n'.join(lines)
+    clean = re.sub(r'`[^`]+`', '', clean)
+    clean = re.sub(r'\*\*|__|[*#]', '', clean)
+    clean = re.sub(r'^\s*[-•]\s+', '', clean, flags=re.MULTILINE)
+    clean = re.sub(r'\n{3,}', '\n\n', clean)
+    return clean.strip()[:3000]
+
+
 @app.post("/tts")
 async def tts(req: TTSRequest):
-    import boto3, re
-    clean = re.sub(r'\|[^\n]+\|', '', req.text)
-    clean = re.sub(r'[-]{2,}', '', clean)
-    clean = re.sub(r'#{1,3}\s*', '', clean)
-    clean = re.sub(r'\*\*', '', clean)
-    clean = re.sub(r'`[^`]+`', '', clean)
-    clean = clean.strip()[:3000]
+    import boto3
+    clean = _clean_text_for_tts(req.text)
     region = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
     polly = boto3.client("polly", region_name=region)
     s3 = boto3.client("s3", region_name=region)
