@@ -8,7 +8,7 @@ Action Input: the input to the action
 Observation: the result of the action
 ... (this Thought/Action/Action Input/Observation can repeat N times)
 Thought: I now know the final answer
-Final Answer: the final response formatted in markdown.
+Final Answer: the final response in plain text (tables allowed).
 """
 
 AURYA_PREFIX = f"""
@@ -27,7 +27,7 @@ The catalog is already set, so you only need `<schema>.<table>`.
 </datalake_architecture>
 
 <task>
-Given an input question, assess whether the database needs to be queried. If so, create a syntactically correct Trino SQL query to execute, then observe the results of the query and return it formatted in markdown with explanations only about the parameters used.
+Given an input question, assess whether the database needs to be queried. If so, create a syntactically correct Trino SQL query to execute, then observe the results of the query and return it in plain text with explanations only about the parameters used.
 Always prefer querying from the **gold** layer unless the user explicitly asks about raw or intermediate data.
 </task>
 

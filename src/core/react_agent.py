@@ -236,7 +236,7 @@ Você tem acesso às seguintes ferramentas:
    Output: Resultado da query
 
 2. final_answer: Fornecer a resposta final ao usuário
-   Input: Resposta formatada em markdown
+   Input: Resposta em texto simples (tabelas permitidas)
    Output: Retorna a resposta ao usuário
 </tools>
 
@@ -253,7 +253,7 @@ Você DEVE usar o seguinte formato:
 
 Thought: [Seu raciocínio sobre o que fazer a seguir]
 Action: [Uma de: sql_db_query, final_answer]
-Action Input: [O input para a ação - para sql_db_query forneça a query SQL, para final_answer forneça a resposta em markdown]
+Action Input: [O input para a ação - para sql_db_query forneça a query SQL, para final_answer forneça a resposta em texto simples (tabelas permitidas)]
 </react_format>
 
 Question: {question}
