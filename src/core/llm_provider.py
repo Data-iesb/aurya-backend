@@ -18,7 +18,10 @@ Env vars:
 
 import os
 from typing import Optional
+from dotenv import load_dotenv
 from langchain_core.runnables import Runnable
+
+load_dotenv()
 
 _cache: dict = {}
 

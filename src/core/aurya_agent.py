@@ -1,5 +1,5 @@
 """
-Aurya Agent — multi-domain agent for Brazilian public data.
+Aurya Agent — agente de consulta aos dados do SUS via Trino.
 """
 
 import time
@@ -14,8 +14,8 @@ from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
 
 from src.prompts.prompts import ROUTER_PROMPT, get_examples
+from src.prompts.temas import TEMA_PREFIX
 from src.prompts.response_prompts import AURYA_SUFFIX
-from src.core.catalogue import build_context
 from src.core.trino import TrinoConnection
 from src.core.llm_provider import get_llm
 from src.core.react_agent import ReActSQLAgent
@@ -33,7 +33,7 @@ class AgentState(TypedDict):
 
 
 class AuryaAgent:
-    """Aurya agent for Brazilian public data queries."""
+    """Aurya agent — consultas aos dados do SUS."""
 
     def __init__(self, verbose: bool = False):
         self.verbose = verbose
@@ -42,7 +42,7 @@ class AuryaAgent:
 
         print("🚀 [Aurya] Inicializando...")
 
-        self.db = TrinoConnection.get_database()
+        self.db_engine = TrinoConnection.get_engine()
         self.llm_fast = get_llm(role="fast", temperature=0.0, max_tokens=2048)
         self.llm_primary = get_llm(
             role="primary", temperature=0.0, max_tokens=4096,
@@ -50,8 +50,8 @@ class AuryaAgent:
         )
 
         self.sql_agent = _AuryaReActAgent(
-            llm=self.llm_primary, db=self.db,
-            max_iterations=5, verbose=verbose,
+            llm=self.llm_primary, db=None,
+            max_iterations=15, verbose=verbose,
         )
 
         router_template = ChatPromptTemplate.from_messages([
@@ -107,18 +107,22 @@ class AuryaAgent:
         except Exception as e:
             print(f"[Aurya-Router] Error: {e}")
             state["category"] = "greetings"
-            state["output"] = "Olá! Sou a Aurya, uma assistente virtual especializada em dados públicos brasileiros. Como posso ajudar?"
+            state["output"] = "Olá! Sou a Aurya SUS, assistente de inteligência artificial especializada nos dados do SUS. Como posso ajudar?"
             state["timing"]["router"] = time.time() - start
         return state
 
     async def _sql_agent_node(self, state: AgentState) -> AgentState:
         start = time.time()
         try:
+            tema = state.get("category", "saude")
             prev = state["messages"][:-1] if len(state["messages"]) > 1 else []
+
+            db_wrapper = TrinoConnection.get_database()
+            self.sql_agent.set_tema(tema, db_wrapper)
+
             result = await self.sql_agent.run(
-                question=state["input"], examples=get_examples(state["category"]),
+                question=state["input"], examples=get_examples(tema),
                 request_id="", previous_messages=prev,
-                category=state["category"],
             )
             state["output"] = result["output"]
             state["sql_query"] = result["sql_query"]
@@ -171,11 +175,29 @@ class AuryaAgent:
 
 
 class _AuryaReActAgent(ReActSQLAgent):
-    """Override _build_prompt to use Aurya-specific prefix."""
 
-    def _build_prompt(self, question: str, examples: str, previous_messages: list = None, category: str = "saude", **kwargs) -> str:
-        ctx = build_context(category)
-        system_prefix = "Use the following format:\n\nQuestion: the input question you must answer\nThought: you should always think about what to do\nAction: the action to take, should be one of [sql_db_query, final_answer]\nAction Input: the input to the action\nObservation: the result of the action\n... (this Thought/Action/Action Input/Observation can repeat N times)\nThought: I now know the final answer\nFinal Answer: the final response formatted in markdown.\n"
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.tema = "saude"
+
+    def set_tema(self, tema: str, db_wrapper):
+        """Define o tema atual e o wrapper de banco."""
+        self.tema = tema
+        self.db = db_wrapper
+
+    def _build_prompt(self, question: str, examples: str, previous_messages: list = None) -> str:
+        prefix = TEMA_PREFIX.get(self.tema, TEMA_PREFIX["saude"])
+
+        system_prefix = f"""Use the following format:
+
+Question: the input question you must answer
+Thought: you should always think about what to do
+Action: the action to take, should be one of [sql_db_query, final_answer]
+Action Input: the input to the action
+Observation: the result of the action
+... (this Thought/Action/Action Input/Observation can repeat N times)
+Thought: I now know the final answer
+Final Answer: the final response in plain text (tables allowed)."""
 
         conversation_context = ""
         if previous_messages:
@@ -185,30 +207,21 @@ class _AuryaReActAgent(ReActSQLAgent):
                 conversation_context += f"{role}: {msg.content}\n\n"
             conversation_context += "</conversation_history>\n"
 
-        return f"""<description>
-You are an expert analyst in Brazilian public data who queries a SQL datalake via Trino.
-Given a question, create a Trino SQL query, execute it, and return a markdown-formatted answer in PT-BR.
-</description>
-
-{ctx}
-
-<prohibition>
-DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.).
-Never use HAVING clause on analytic function columns.
-Use LIMIT N (not TOP N). Use Trino SQL syntax.
-Percentages MUST have two decimal places.
-Always prefix table names with gold.
-</prohibition>
+        return f"""{prefix}
 
 <tools>
-1. sql_db_query: Execute a Trino SQL query
-2. final_answer: Provide the final markdown answer
+1. sql_db_query: Executar uma query SQL no Trino
+2. final_answer: Fornecer a resposta final
 </tools>
 
 {system_prefix}
 
 {AURYA_SUFFIX}
 {conversation_context}
+<examples>
+{examples or ''}
+</examples>
+
 Question: {question}
 """
 

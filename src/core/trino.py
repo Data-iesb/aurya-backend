@@ -5,7 +5,8 @@ Trino Connection — gold schema.
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.pool import StaticPool
-from langchain_community.utilities import SQLDatabase
+
+from src.core.sql_database_wrapper import SQLDatabaseWrapper
 
 
 class TrinoConnection:
@@ -19,26 +20,33 @@ class TrinoConnection:
 
         host = os.getenv("TRINO_HOST", "trino.dataiesb.com")
         port = os.getenv("TRINO_PORT", "443")
-        user = os.getenv("TRINO_USER", "admin")
+        user = os.getenv("TRINO_USER", "funasa_reader")
         password = os.getenv("TRINO_PASSWORD", "")
-        catalog = os.getenv("TRINO_CATALOG", "datalake")
+        catalog = os.getenv("TRINO_CATALOG", "seaweedfs")
+        schema = os.getenv("TRINO_SCHEMA", "gold")
+        scheme = os.getenv("TRINO_HTTP_SCHEME", "https")
 
-        if password:
-            url = f"trino://{user}:{password}@{host}:{port}/{catalog}/gold"
-        else:
-            url = f"trino://{user}@{host}:{port}/{catalog}/gold"
+        url = f"trino://{user}:{password}@{host}:{port}/{catalog}/{schema}"
 
-        connect_args = {"http_scheme": "https" if port == "443" else "http"}
+        connect_args = {
+            "http_scheme": scheme,
+            "verify": False,  # Certificado autoassinado do Trino
+        }
 
-        print(f"[Trino] Engine → {host}:{port}/{catalog}/gold")
+        print(f"[Trino] Engine → {host}:{port}/{catalog}/{schema}")
         cls._engine = create_engine(url, connect_args=connect_args, poolclass=StaticPool)
         return cls._engine
 
     @classmethod
-    def get_database(cls) -> SQLDatabase:
+    def get_engine(cls):
+        return cls._build_engine()
+
+    @classmethod
+    def get_database(cls) -> SQLDatabaseWrapper:
         if cls._db is None:
             engine = cls._build_engine()
-            cls._db = SQLDatabase(engine)
+            schema = os.getenv("TRINO_SCHEMA", "gold")
+            cls._db = SQLDatabaseWrapper(engine, schema=schema)
             print(f"[Trino] SQLDatabase ready — tables: {cls._db.get_usable_table_names()}")
         return cls._db
 

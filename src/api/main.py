@@ -166,12 +166,12 @@ async def root():
 
 @app.get("/questions")
 async def questions():
-    from src.core.catalogue import get_examples
-    categories = ["saude", "educacao", "seguranca", "demografia"]
+    from src.prompts.router_prompts import CATEGORY_MAP
     result = {}
-    for cat in categories:
-        examples = get_examples(cat)
-        result[cat] = [ex.get("question") for ex in examples[:3] if ex.get("question")]
+    for cat, examples_text in CATEGORY_MAP.items():
+        examples = [line.strip().split(":")[-1] for line in examples_text.splitlines()
+                    if line.strip().startswith("<question>")]
+        result[cat] = examples[:3]
     return result
 
 

@@ -115,6 +115,8 @@ Resposta:
 ### 1. Instalar dependências
 
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r src/requirements.txt
 ```
 
@@ -123,22 +125,33 @@ pip install -r src/requirements.txt
 Criar `.env` na raiz:
 
 ```env
-# LLM
+# LLM (Bedrock)
 LLM_PROVIDER=bedrock
+AWS_ACCESS_KEY_ID=***
+AWS_SECRET_ACCESS_KEY=***
 AWS_REGION=us-east-1
+FAST_MODEL=us.anthropic.claude-haiku-4-5-20251001-v1:0
+PRIMARY_MODEL=us.anthropic.claude-sonnet-4-6
 
-# Trino
+# Trino (catálogo seaweedfs)
 TRINO_HOST=trino.dataiesb.com
 TRINO_PORT=443
-TRINO_USER=aurya
-TRINO_PASSWORD=***          # Ver Secrets Manager: trino/aurya
-FUNASA_TRINO_CATALOG=seaweedfs
+TRINO_HTTP_SCHEME=https
+TRINO_USER=***
+TRINO_PASSWORD=***
+TRINO_CATALOG=seaweedfs
+TRINO_SCHEMA=gold
 
 # Auth
-API_KEY=***                  # Ver Secrets Manager ou k8s secret aurya-secret
+API_KEY=***
+
+# Concorrência
+MAX_CONCURRENT_REQUESTS=50
+MAX_LLM_CONCURRENT=6
+REQUEST_TIMEOUT_SECONDS=300
 ```
 
-Credenciais Trino estão no AWS Secrets Manager: `trino/aurya`
+O `.env` está no `.gitignore` — nunca versione credenciais.
 
 ### 3. Iniciar
 
