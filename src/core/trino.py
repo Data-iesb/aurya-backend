@@ -9,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 from src.core.sql_database_wrapper import SQLDatabaseWrapper
 
 # Temas que usam o catálogo postgres (não o seaweedfs)
-POSTGRES_TEMAS = {"pos_graduacao"}
+POSTGRES_TEMAS = {"pos_graduacao", "iesb"}
 
 # Credenciais padrão do catálogo postgres (mesmo acesso do gen-ai-funasa)
 POSTGRES_DEFAULT_USER = "admin"

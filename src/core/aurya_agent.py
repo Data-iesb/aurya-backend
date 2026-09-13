@@ -2,6 +2,7 @@
 Atena Agent — agente de consulta aos dados do SUS via Trino.
 """
 
+import asyncio
 import time
 import hashlib
 from typing import Any, Dict, List, Optional, TypedDict, Annotated
@@ -16,10 +17,14 @@ from langgraph.checkpoint.memory import MemorySaver
 from src.prompts.prompts import ROUTER_PROMPT, get_examples
 from src.prompts.temas import TEMA_PREFIX
 from src.prompts.response_prompts import AURYA_SUFFIX
+from src.core import iesb_rag
 from src.core.trino import TrinoConnection
 from src.core.llm_provider import get_llm
 from src.core.react_agent import ReActSQLAgent
 from src.core.token_callback import TokenUsageCallback
+
+# Temas respondidos por RAG (sem SQL)
+RAG_TEMAS = {"iesb"}
 
 
 class AgentState(TypedDict):
@@ -70,15 +75,18 @@ class AuryaAgent:
         workflow = StateGraph(AgentState)
         workflow.add_node("router", self._router_node)
         workflow.add_node("sql_agent", self._sql_agent_node)
+        workflow.add_node("rag_agent", self._rag_agent_node)
         workflow.add_node("format_output", self._format_output_node)
 
         workflow.add_edge(START, "router")
         workflow.add_conditional_edges(
             "router",
-            lambda s: "output" if s["category"] == "greetings" else "sql_agent",
-            {"sql_agent": "sql_agent", "output": "format_output"}
+            lambda s: "output" if s["category"] == "greetings"
+            else ("rag_agent" if s["category"] in RAG_TEMAS else "sql_agent"),
+            {"sql_agent": "sql_agent", "rag_agent": "rag_agent", "output": "format_output"}
         )
         workflow.add_edge("sql_agent", "format_output")
+        workflow.add_edge("rag_agent", "format_output")
         workflow.add_edge("format_output", END)
         return workflow.compile(checkpointer=self.checkpointer)
 
@@ -139,6 +147,39 @@ class AuryaAgent:
             print(f"[Atena-SQL] Error: {e}")
             state["output"] = "Desculpe, encontrei um erro ao processar sua pergunta."
             state["timing"]["sql_agent"] = time.time() - start
+        return state
+
+    async def _rag_agent_node(self, state: AgentState) -> AgentState:
+        start = time.time()
+        try:
+            tema = state.get("category", "iesb")
+            prev = state["messages"][:-1] if len(state["messages"]) > 1 else []
+
+            trechos = await asyncio.to_thread(iesb_rag.search, state["input"], 4)
+
+            conversation_context = ""
+            if prev:
+                conversation_context = "\nHistórico da conversa:\n"
+                for msg in prev[-6:]:
+                    role = "Usuário" if msg.__class__.__name__ == "HumanMessage" else "Atena"
+                    conversation_context += f"{role}: {msg.content}\n\n"
+
+            prompt = (
+                f"{TEMA_PREFIX[tema]}\n\n"
+                f"<trechos>\n{trechos}\n</trechos>\n"
+                f"{conversation_context}\n"
+                f"Pergunta: {state['input']}"
+            )
+            response = await self.llm_primary.ainvoke([HumanMessage(content=prompt)])
+            state["output"] = response.content
+            state["timing"]["rag_agent"] = time.time() - start
+        except Exception as e:
+            print(f"[Atena-RAG] Error: {e}")
+            state["output"] = (
+                "Desculpe, não consegui consultar os guias do IESB agora. "
+                "Tente novamente em instantes."
+            )
+            state["timing"]["rag_agent"] = time.time() - start
         return state
 
     async def _format_output_node(self, state: AgentState) -> AgentState:

@@ -1,4 +1,4 @@
-from src.prompts.temas import saude, educacao, seguranca, demografia, pos_graduacao
+from src.prompts.temas import saude, educacao, seguranca, demografia, pos_graduacao, iesb
 
 prompt_router = """
 <description>
@@ -13,6 +13,7 @@ Classify the input text into one of these categories:
 4. 'seguranca' - For questions about public safety (traffic accidents, criminal occurrences, violence, homicides, robberies)
 5. 'demografia' - For questions about demographics (population, census, age distribution, gender ratio, municipalities)
 6. 'pos_graduacao' - For questions about graduate programs (pós-graduação, mestrado, doutorado, CAPES, Sucupira, programas, conceito CAPES, área de avaliação)
+7. 'iesb' - For questions about IESB academic rules for Extensão Curricularizada and Atividades Complementares (horas de extensão, atividades complementares, como lançar/enviar comprovação, prazos, regras dos guias IESB)
 
 IMPORTANT CONTEXT RULES:
 1. If the input contains conversation context (previous messages), use that context to understand the current question.
@@ -44,6 +45,7 @@ The output will be returned formatted in markdown and in the language in which t
    {{"category": "seguranca"}}
    {{"category": "demografia"}}
    {{"category": "pos_graduacao"}}
+   {{"category": "iesb"}}
 </output_format>
 """
 
@@ -53,6 +55,7 @@ CATEGORY_MAP = {
     "seguranca": seguranca,
     "demografia": demografia,
     "pos_graduacao": pos_graduacao,
+    "iesb": iesb,
 }
 
 def get_example(example_output: dict) -> str:
