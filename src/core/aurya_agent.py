@@ -166,7 +166,7 @@ class AuryaAgent:
 
             prompt = (
                 f"{TEMA_PREFIX[tema]}\n\n"
-                f"<trechos>\n{trechos}\n</trechos>\n"
+                f"<guias>\n{trechos}\n</guias>\n"
                 f"{conversation_context}\n"
                 f"Pergunta: {state['input']}"
             )
