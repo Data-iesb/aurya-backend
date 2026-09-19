@@ -4,7 +4,6 @@ Atena Agent — agente de consulta aos dados do SUS via Trino.
 
 import asyncio
 import time
-import hashlib
 from typing import Any, Dict, List, Optional, TypedDict, Annotated
 
 from langchain_core.prompts import ChatPromptTemplate
@@ -44,8 +43,6 @@ class AuryaAgent:
 
     def __init__(self, verbose: bool = False):
         self.verbose = verbose
-        self._response_cache: Dict[str, Dict] = {}
-        self._cache_max = 200
 
         print("🚀 [Atena] Inicializando...")
 
@@ -200,12 +197,6 @@ class AuryaAgent:
     async def ainvoke(self, user_input: str, request_id: str = "", thread_id: str = "default", agent: Optional[str] = None, mode: Optional[str] = None) -> Dict[str, Any]:
         start = time.time()
 
-        cache_key = hashlib.md5(f"{agent or ''}:{mode or ''}:{user_input.strip().lower()}".encode()).hexdigest()
-        if cache_key in self._response_cache:
-            cached = self._response_cache[cache_key]
-            cached["timing"] = {"total": 0.0, "cache": "hit"}
-            return cached
-
         initial: AgentState = {
             "input": user_input, "agent": agent, "mode": mode, "category": None,
             "messages": [HumanMessage(content=user_input)],
@@ -216,20 +207,13 @@ class AuryaAgent:
         final = await self.graph.ainvoke(initial, {"configurable": {"thread_id": thread_id}})
         final["timing"]["total"] = time.time() - start
 
-        result = {
+        return {
             "output": final.get("output"),
             "sql_query": final.get("sql_query"),
             "category": final.get("category"),
             "timing": final.get("timing"),
             "token_usage": final.get("token_usage"),
         }
-
-        if result.get("output") and result.get("category") != "greetings":
-            if len(self._response_cache) >= self._cache_max:
-                del self._response_cache[next(iter(self._response_cache))]
-            self._response_cache[cache_key] = {k: v for k, v in result.items()}
-
-        return result
 
 
 class _AuryaReActAgent(ReActSQLAgent):
