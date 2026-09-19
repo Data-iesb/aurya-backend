@@ -110,7 +110,8 @@ async def cleanup_sessions():
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     await websocket.accept()
     agent = websocket.query_params.get("agent")
-    print(f"[WebSocket] Connected: {session_id} (agent={agent or 'auto'})")
+    mode = websocket.query_params.get("mode")
+    print(f"[WebSocket] Connected: {session_id} (agent={agent or 'auto'}, mode={mode or 'auto'})")
 
     try:
         aurya, _ = await get_or_create_session(session_id)
@@ -133,7 +134,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             async with concurrency_semaphore:
                 try:
                     result = await asyncio.wait_for(
-                        aurya.ainvoke(user_input, request_id=request_id, thread_id=thread_id, agent=agent),
+                        aurya.ainvoke(user_input, request_id=request_id, thread_id=thread_id, agent=agent, mode=mode),
                         timeout=REQUEST_TIMEOUT_SECONDS
                     )
                     await websocket.send_json({

@@ -15,7 +15,7 @@ from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
 
 from src.prompts.prompts import ROUTER_PROMPT, get_examples
-from src.prompts.temas import TEMA_PREFIX
+from src.prompts.temas import TEMA_PREFIX, EDUCACIONAL_MODE_PROMPTS
 from src.prompts.response_prompts import AURYA_SUFFIX
 from src.core import iesb_rag
 from src.core.trino import TrinoConnection
@@ -24,12 +24,13 @@ from src.core.react_agent import ReActSQLAgent
 from src.core.token_callback import TokenUsageCallback
 
 # Temas respondidos por RAG (sem SQL)
-RAG_TEMAS = {"iesb"}
+RAG_TEMAS = {"iesb", "educacional"}
 
 
 class AgentState(TypedDict):
     input: str
     agent: Optional[str]
+    mode: Optional[str]
     category: Optional[str]
     messages: Annotated[List, add_messages]
     sql_query: Optional[str]
@@ -95,7 +96,7 @@ class AuryaAgent:
         token_cb = TokenUsageCallback()
         try:
             fixed_agent = state.get("agent")
-            if fixed_agent and fixed_agent in TEMA_PREFIX:
+            if fixed_agent and (fixed_agent in TEMA_PREFIX or fixed_agent in RAG_TEMAS):
                 state["category"] = fixed_agent
                 state["timing"]["router"] = time.time() - start
                 return state
@@ -155,7 +156,16 @@ class AuryaAgent:
             tema = state.get("category", "iesb")
             prev = state["messages"][:-1] if len(state["messages"]) > 1 else []
 
-            trechos = await asyncio.to_thread(iesb_rag.search, state["input"], 4)
+            if tema == "educacional":
+                prefix = EDUCACIONAL_MODE_PROMPTS.get(
+                    state.get("mode") or "aluno", EDUCACIONAL_MODE_PROMPTS["aluno"]
+                )
+                tag = "apostilas"
+            else:
+                prefix = TEMA_PREFIX[tema]
+                tag = "guias"
+
+            trechos = await asyncio.to_thread(iesb_rag.search, state["input"], 4, tema)
 
             conversation_context = ""
             if prev:
@@ -165,8 +175,8 @@ class AuryaAgent:
                     conversation_context += f"{role}: {msg.content}\n\n"
 
             prompt = (
-                f"{TEMA_PREFIX[tema]}\n\n"
-                f"<guias>\n{trechos}\n</guias>\n"
+                f"{prefix}\n\n"
+                f"<{tag}>\n{trechos}\n</{tag}>\n"
                 f"{conversation_context}\n"
                 f"Pergunta: {state['input']}"
             )
@@ -187,17 +197,17 @@ class AuryaAgent:
             state["messages"].append(AIMessage(content=state["output"]))
         return state
 
-    async def ainvoke(self, user_input: str, request_id: str = "", thread_id: str = "default", agent: Optional[str] = None) -> Dict[str, Any]:
+    async def ainvoke(self, user_input: str, request_id: str = "", thread_id: str = "default", agent: Optional[str] = None, mode: Optional[str] = None) -> Dict[str, Any]:
         start = time.time()
 
-        cache_key = hashlib.md5(f"{agent or ''}:{user_input.strip().lower()}".encode()).hexdigest()
+        cache_key = hashlib.md5(f"{agent or ''}:{mode or ''}:{user_input.strip().lower()}".encode()).hexdigest()
         if cache_key in self._response_cache:
             cached = self._response_cache[cache_key]
             cached["timing"] = {"total": 0.0, "cache": "hit"}
             return cached
 
         initial: AgentState = {
-            "input": user_input, "agent": agent, "category": None,
+            "input": user_input, "agent": agent, "mode": mode, "category": None,
             "messages": [HumanMessage(content=user_input)],
             "sql_query": None, "output": None,
             "timing": {}, "token_usage": {},
