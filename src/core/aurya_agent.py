@@ -25,6 +25,9 @@ from src.core.token_callback import TokenUsageCallback
 # Temas respondidos por RAG (sem SQL)
 RAG_TEMAS = {"iesb", "educacional"}
 
+# Mensagens de histórico incluídas no prompt de geração (RAG e SQL)
+HISTORY_MESSAGES = 20
+
 
 class AgentState(TypedDict):
     input: str
@@ -167,7 +170,7 @@ class AuryaAgent:
             conversation_context = ""
             if prev:
                 conversation_context = "\nHistórico da conversa:\n"
-                for msg in prev[-6:]:
+                for msg in prev[-HISTORY_MESSAGES:]:
                     role = "Usuário" if msg.__class__.__name__ == "HumanMessage" else "Atena"
                     conversation_context += f"{role}: {msg.content}\n\n"
 
@@ -244,7 +247,7 @@ Final Answer: the final response in plain text (tables allowed)."""
         conversation_context = ""
         if previous_messages:
             conversation_context = "\n<conversation_history>\n"
-            for msg in previous_messages[-6:]:
+            for msg in previous_messages[-HISTORY_MESSAGES:]:
                 role = "Usuário" if msg.__class__.__name__ == "HumanMessage" else "Atena"
                 conversation_context += f"{role}: {msg.content}\n\n"
             conversation_context += "</conversation_history>\n"
